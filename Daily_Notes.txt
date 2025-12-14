@@ -156,8 +156,10 @@ THINGS THAT I WANT TO KNOW:
 - Shallow copy: 
     - what is a shallow copy? 
       Let's do an example: I have an array A and an array B
-      - A will correspond to a certain memory address, the same can be said         for B
-      - 
+      - A will correspond to a certain memory address, the same can be said for B
+      - I make B equal to A at some point.
+      - Then I make a change to A --> what happens to B??? --> For a shallow copy, B will change as well, BECAUSE IT IS NOT A DEEP COPY!!!!
+      - to make the copy fully work, we need a Copy Constructor, and usually also a Move Constructor!!!!
 
 
 
@@ -473,6 +475,26 @@ Architecture course:
                             - made of 2 applications:
                                 - extrae: 
                                 - to view things: paraver --> files .prv : we copy files locally and we open them!
+
+
+        - ATTENTION!!!!: HOW WE CALCULATE THE BANDWIDTH???? (Bytes per second) --> here we are referring to the effective data accessed, not 
+          to the data sheet of the DRAM Bytes per second (which shoul be anyway the maximum admitted bandwith)
+            - For a theoretical estimation we can refer to the calculation linked to the block size (edge), in particular it will be computed 
+              as N^2 * (size of Double precision number (8 bytes)) * number of accesses to memory (in this case 3 reads and 1 writing) and 
+              then we should multiply for N divided by the block size (WHY??????)
+            - For an experimental estimation, we can use Perf:
+                - we run per stat -d executable and we get the cache misses for each memory level. What we can observe is that 
+                  in this case the cache misses for the last cache level (L3) are really smaller than the cache misses for L1
+                - When we have a cache miss, it means that the system must access to data to retrieve it and make it available again
+                - So the last level cache misses represent the data (band width) exchanged with the DRAM, while the L1 cache misses 
+                  represent the bandwidth between L1 and L2. 
+                - In spite of the standard analysis being referred to the DRAM bandwidth, here we calculate both DRAM and L1 to L2 Bandwidth
+                - To do this, we multiply the size of the cache misses (L1 or ultimate cache level) for the size of the cache line 
+                  (BECAUSE THE CACHE MISSES REPRESENT THE NUMBER OF CACHE LINE TO BE CALLED FOR DATA TO MAKE DATA AVAILABLE) and 
+                  divide for the elapsed time!!!
+
+
+
 
 
 
