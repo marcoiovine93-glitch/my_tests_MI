@@ -1,0 +1,480 @@
+Run job on boost partition (for GPU computing):
+- insert lines in the job:
+#SBATCH --account=ICT25_MHPC_0
+#SBATCH --partition=boost_usr_prod
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=1 // This is the number of threads per GPU, in the case of the GPUs!!
+#SBATCH --ntasks-per-node=1 // Number of GPUs per node!!
+
+Run job from debug node (partition?):
+- add line to the script: #SBATCH --qos=boost_qos_db
+
+
+
+Profiling with Nsys:
+- run nsys: nsys-ui <name_of_the_file>
+- how to see timings from Nsys: 
+    - open --> then go to the menu (listview) on the central left --> Stats System View --> NVTX Range Summary
+        - in this way we can compare the timings of the section on which we did the rodiling
+        - profiling in the code:
+            - header in code: #include <nvToolsExt.h>
+            - how to include section in a profiling:
+                nvtxRangePush("Copy matrix 1");
+                ...code....
+                nvtxRangePop();
+
+- modules:
+    - module load nvhpc (only for gpus??)
+    - compile: nvcc exerc3_transpose.cu -arch=sm_80 -lnvToolsExt (we specify the architecture only for the gpu case???
+      run with profiling: nsys profile --trace=cuda,nvtx ./a.out  (WE NEED CUDA ONLY FOR GPUS!!!)
+
+
+
+- How to compile transpose matrix GPU code and RUN and PROFILING :
+   module purge
+   module load nvhpc
+ 
+   nvcc exerc3_transpose.cu -arch=sm_80 -lnvToolsExt
+ 
+   nsys profile --trace=cuda,nvtx ./a.out
+   
+   code headers:
+   #include <cuda_runtime.h>
+   #include <nvToolsExt.h>
+
+
+
+- How to compile matrix multiplication GPU code:
+    module load nvhpc
+    module load hpcx-mpi
+    module load cuda/12.2
+
+    mpic++ -I./include -L/leonardo/prod/spack/06/install/0.22/linux-rhel8-icelake/gcc-8.5.0/nvhpc-24.5-torlmnyzcexnrs6pq4cccabv7ehkv3xy/Linux_x86_64/24.5    /math_libs/lib64/ -o matrix.x src/main.cpp -lcublas -lcudart
+
+    srun ./code.x
+  
+    code headers:
+    #include <cublas_v2.h>
+    #include <cuda_runtime.h>
+
+
+
+
+- How to compile jacobi (not sure it's correct) GPU code:
+    module load nvhpc
+    module load hpcx-mpi
+  
+    nvc++ -o exe -I./include src/main.cpp -acc -gpu=cc80,cuda12.4 -Minfo=acc -lcudart -lnvToolsExt
+  
+    code headers: 
+    #include <openacc.h> //We include the header corresponding to openacc.
+    #include <cuda_runtime.h>
+
+
+
+- NO BLOCK condition for transpose code:
+    - the threads tend to access the same bank in order to have chunks of 32 elements each(warp dimension)
+    - REMEMBER!!: the warps have a number of elements (chunks of data accessed by threads) equal to 32!!!!!
+    - to make the threads to not access the same data (there is this risk) and generate a latency in order to fullfill the warp, 
+      we add an element to the array, even if it is not corresponding to the physical domain points --> in this way, we allocate more memory, 
+      but the threads are able to access the data without trying to overwrite the same memory destination because there is more "space" in 
+      memory that has been allocated?????
+
+
+- GPU course (P1.7): why the shared memory access is faster than the global (default) one? Because in this way we make the threads access
+                     the data shared in the same Block (we have, for GPUs, blocks containing threads). In GPUS, each Block of threads has 
+                     a small shared memory. The ACCESS TO THIS MEMORY IS REALLY FAST --> THIS IS THE REASON WHY IT IS CONVENIENT TO USE SHARED
+                     MEMORY APPROACH!!!!
+
+- GPU course: why we need to do a Synchronize for the threads? If we don't do it, the Timer retrieves a really small time, why?
+              - NOO!!! IN THIS CASE WE ARE CPNSIDERING MESSAGE PASSING, SO RANKS (NO MEMORY SHARED SYSTEM --> DISTRIBUTED ONE), WE DON'T HAVE THREADS!!!!!!
+              - IT IS CORRECT TO SAY THAT WE NEED TO SNCHRONIZE THE DEVICES, WHY?
+                  - If we compute the Timing without synchronizing, 
+              - NOOOOOOOOOOOOOOOOOOO!!!! : This is totally wrong!!!!!
+                - IN GPU COMPUTING (CUDA) THE THREADS ARE THE GPU THREADS!!! SO WE HAVE MULTIPLE GPUS --> FOR EACH GPU WE DEFINE A NUMBER OF THREADS
+                  IN ORDER TO HAVE CHUNKS OF THREADS EQUAL TO 32 (USUAL SIZE OF A WARP OF THREADS) --> SINCE WE HAVE MULTIPLE GPUS PROCESSOR,
+                  WE PROCEED IN THIS WAY (TO BE AS MUCH AS POSSIBLE IN LINE WITH THE HARDWARE): 
+                    - WE SET A CERTAIN NUMBER OF RANKS WITH MPI: FOR EACH OF THEM WE SEND TO DEVICE --> WE DO THE COMPUTATION ON GPU --> WE RESEND
+                      TO THE HOST --> WE ARRANGE THE RESULTS TO GET THE FINAL RESULT AND PRINT FROM A CPU RANK!!
+                - SO IN GPU COMPUTING WE TALK IN GENERAL ABOUT THREADS!!!
+                    - SO IT IS CORRECT TO ADFIRM THAT WE SYNCHRONIZE THREADS!!!
+                    - WE DO A: cudaDeviceSynchronize() : 
+                        - THIS FUNCTION STOPS THE CPU INSTRUCTION EXECUTION UNTIL THE GPU COMPUTATIONS ARE EFFECTIVELY TERMINATED
+                          (BECAUSE KERNEL CREATION BY HOST(CPU) ARE NON-BLOCKING BY DEFAULT!!!)
+                        - THIS IS IMPORTANT BECAUSE IN THIS CASE, WITHOUT INCLUDING IT, WE HAVE THAT THE ONLY TIME MEASURED IS THE TIME NEEDED 
+                          TO COPY DATA FROM CPU TO GPU?????
+
+
+- REMEMBER!!!!!: In Python is not possible to perform Shared memory parallelism!!!
+    - IT IS NOT POSSIBLE TO INTRODUCE THREADS!!!
+
+
+
+THINGS THAT I WANT TO KNOW:
+- Cannon method for matrix multiplication
+- How to make variables private in C++ without having compilation issues?
+- FFT AND WHY THE AllToAll (Course P1.5)
+- how to make Hdf5 work? (Course P1.5)
+- how to make Jacobi work on GPUs with OpenACC??
+    - consider that when we do the Memcopy(CUDA), we essentially need at first to allocate on the Device
+    - this happens also in the Pragma structured region, but:
+    - in a Pragma structured region OpenAcc authomaticly makes copy of the host buffers "calling" them in the same way of the host buffers!!!
+    - so we don't need to introduce new device buffers!!!!
+    - In a structured pragma region, OpenAcc at first copies data from Host to Device, but inside the pragma region we can refer to both the 
+      host and device buffers!!!
+    - at the closure of the structured data region, OpenAcc copies data from device to Host, BUT IS IMPORTANT TO OBSERVE THAT INSIDE THE DATA
+      REGION WE CAN REFER TO EITHER HOST OR DEVICE BUFFERS!!!
+
+- Balancing of the tree in Fortran
+- Iterator in C++
+- How to implement OpenAcc for Thermal bubble program (course 1.8)??
+- How to make a module for NetCdf4?? (Thermal Bubble code for course 1.9)?
+- How to compile with Intel on Leonardo?? 
+
+
+
+- REMEMBER THE DIFFERENCE IN ARCHITECTURE between THE BOOST AND THE dcgp (CPU) architectures!!!!!
+    - THEY HAVE DIFFERENT NUMA REGIONS!!!
+        - dcgp : 2 sockets, each socket: 4 NUMA regions, each NUMA region: 14 cores (cpus per Task) !!!!
+        - boost partition: cpus per task = 8, number of gres (gpus) = 4
+            - number of gpu threads per block = 8 x 4 --> size of a wrap, which is: 32!!! (coincident with the size indicated on the 
+              architecure Data Sheet!!!)
+
+
+
+
+- COMPILERS MUST HAVE NO SECRETS!!!!!!!!!!!!!!!!!
+    - WHY THE FLAGS? WHY THE PREPROCESSING DIRECTIVES???
+    - WHY THE LINKING? 
+
+
+- ASSEMBLY LANGUAGE!!!
+
+
+
+
+- Shallow copy: 
+    - what is a shallow copy? 
+      Let's do an example: I have an array A and an array B
+      - A will correspond to a certain memory address, the same can be said         for B
+      - 
+
+
+
+
+
+
+Architecture course:
+    - how processor is intercating with external memory --> where we store program to be run!
+    - we have in general the Von Neumann architecture: CPU with ALU and system and memory as a separated entity with respect to it!
+    - we have the memory subsystem:
+    - best performance: 
+        - we have 2 different subsystem
+        - the best speed is the lowest among the CPU and Memory!!!
+        - we need to Load/store data into the machine --> if machine is fast, but the data are provided slowly, it will be slow!!
+        - if memory is not able to provide enough amount of data to perform all the operations affordable by the CPU, the speed will be affected!
+        - CPU: flop per second
+        - Memory: Byte per second
+        - How to define a single metric to estimate the peformance of a system?
+            - Machine Balance (hardware): FLOP/s (peak) / Byte/s (peak) 
+            - arithmetic intensity (software): OPerations/num. of bytes that algorithm needs to read/access to the memory.
+            - if I is higher than MB : compute bound, otherwise: memory- bound !!!
+            - given an algorithm , we can estimate alg intensity of it !!!
+                - example: low arithmetic intensity:Lattice Boltzmann, high: Dense linear algebra (BLAS3 matrix multiplication)
+            - The Roofline Model: visualize how algorithm is exected to behave in a single architecture
+                - x-axis: computational intensity
+                - y-axis: Attainable performance
+                - vertical line: algorithm intensity set!!
+                - we can try to have an extimation of the maximum performance we can achieve with the provided architecture!!
+            - Example: 
+                - inner product:
+                        - inner product: 
+                            - each iteration: 1 sum and 1 multiplication!! --> arithmetic complexity --> 2N FLOPS : we take into account only fl.
+                              point operations!!
+                            - memory accesses? : read one el. from a, one from b--> then we need to read 3 elements --> and write 1 element -->
+                              we need to read 3N, write N elements 
+                            - we calculate I: is is good? --> it depends on the machine!!
+                            - Machine balance today is usually around 4!!
+                            - so this computation will be memory bound for most of the machines!!
+                            - between the principal memory and CPU there are different cache levels!!
+                            - we can use Roofline also to compare different applications!!!
+                            - FPGA: a lot of transistor not statically connected --> we can program them to perform the operation we want!!!
+                            - we can optimize for either cpu performance or memory access!!!
+
+            
+            - Cache lines:
+                - 2 subsystem: CPU, memory
+                - external memory is slow (not into the processor --> distance, if we want a big memory, we need to address memory in some way
+                                           we need system that searches where the element is stored in memory)
+                                          - THIS IS IMPORTANT: WE NEED SOMETHING THAT DEFINES WHERE THE ELEMENT IS STORED IN MEMORY!!
+                - memory access are random?
+                    - how to speed-up process of accessing data?
+                    - in general access is not random!
+                    - in close amount of data we access multiple data:
+                        - if we read a book multiple times, we keep it close to where is is often used
+                        - we could store the small piece of data that we need!
+                        - we have also a spacial locality, not only temporal locality
+                        - we can try to exploit the pattern, we cannot store  all the matrix in the cache, because to have a faster 
+                          memory close to cpu is more expensive than a memory external
+                          (IT IS NOT POSSIBLE TO HAVE A HUGE MEMEORY CLOSE TO THE CPU FOR MONEY REASONS AND FOR MANIFACT, REASONS)
+                        - caches are of standard sizes!
+                        spacial locality:
+                            - if we want to access buffers bigger than the vector?
+                                - if we access often to data,we can try to read from extern. memory a sequence of element instead of a single element
+                                - we assume that the other elements willl be used later on 
+                                  (OBVIOUSLY WE CANNOT BE SURE THEY WILL BE NEEDED LATER)--> elements will be stored in the Cache
+                            - the memory in cache is organized in cache lines
+                        - when we read from the external memory, how we decide where to store in the cache memory?
+                            - depends:
+                                - direct mapping: we use a part of the external memory address
+                                - page size: 4 kbytes
+                        - if we store a given piece of data into cache line, if we want to read data that should be in the same place
+                          How can we know if in the cache line there is a data or the other one?? 
+                          - We introduce an index, with which we can check if the piece of data is in the cache line or not
+                            - if data is in the line : cache hit, otherwise: cache miss
+                                - THE CACHE MISS OR CACHE HIT IS REFERRED TO THE CHECK OF THE PRESENCEOF THE DATA IS IN THE CACHE LINE OR NOT!!!
+                        - collisions: we are trying to store data where there is already data??? 
+                        - Another approach to cache (Associative Cache Mapping):
+                            - we don't have direct mapping, but we have Placement Policy
+                            - we can choose where to store data into the Cache
+                            - if we have one line filled, we can find the first line free and fill it with data
+                                - drawback: how can we know where is data stored that we need? We need to go through all the data in the cache!!
+                                - there is also other problem: if the cache is full how can I decide what line free??
+                                - Associative caches: Good enough policies: Hot Potato:
+                                    - The called cache line passes the hot potato to the next line
+                                    - we start to eviction only when it is full
+                                    - So THE HOT POTATO WILL BE ASSIGNED STATISTICALLY TO THE CACHE LINE CALLED LESS OFTEN
+                                    - drawback: expensive in hardware, as many comparisons as cache lines
+
+                        - 2 Approaches: 
+                            - Direct mapping
+                            - Associative cache mapping
+                        - we introduce something in the middle:
+                            - Set associative cache
+                            - we can find the worst case: should not happen frequently
+                        - We have several cache levels (usually 3)
+                            - we have different machines, they can have really different cache configurations:
+                                - certain caches can be shared only between certain cores 
+                                - running the machine, we can check the architecture/design of the memory
+
+                        - Pages:
+                            - we move one page of memory to the hard drive (OS may decide to move one piece of memory to the hard drive)
+                            - this happens under the hood, we don't know details and we don't have control on it (???) bout it
+                            - why is it important to have data in more pages? We will see tomorrow.
+                            - accessing the data from different pages can affect data and performance!!!!
+                        
+                        - MemHierarchy exercise:
+                            - command : papi_mem_info (after having run the executable):
+                                - let us to check the boundary from which we have the next memory location (L1, L2, L3 caches, and the DRAM memory)
+                                - the number near "Associativity" is the number of bytes stored in a single Cache line: is the 
+                                - line size: cache line size
+                                - number of lines
+                                - associativity: number of sets --> columns!!! Is it the number of sets (groups of columns) or the column 
+                                  index in a certain set??
+
+
+                        - How the cache behaves when we try to write something into the memory??
+                            - what may happen if we try to modify that is in the cache line?
+
+            
+
+            Single Pocessor:
+                - we have many steps when running a set of instructions
+                - Resources: - memories that are not the registers: memory where we store the different instructions (example)
+                                - difference with the register: is bigger--> slower to access
+                                - we usually read one instruction per time --> more space required
+                             - ALU
+                             - Address generation unit: it is an ALU, but it is dedicated to memory generation task
+                             - Single cycle execution:
+                                - one instruction per clock cycle --> but to execute an instruction --> many steps 
+                                    - steps coukld be longer or shorter
+                                    - some instruct. perfectly fits in the clock cycle, other that need to wait 
+                                        - pipelined execution: we split extraction in several steps
+                                            - Instruction level parallelism:
+                                                -  for every clock cycle a piece of hardware executes a small istruction
+                                                - so several instruction at the same time: we cannot control (only suddenly)
+                                                - it happens inside the processor
+                                                - latency point of view: not positive:
+                                                    - first result is get after a certain n of clock cycle: no benefit
+                                                    - benefit: we can increase the clock frequency and the throughput:
+                                                        - because after a certain number of clocks we get a lot of results
+                                                        - so it is good if we have a lot of instruction to be executed!
+                             - Problems with Pipeline:
+                                - during the clock cycle we cannot use the same resource
+                                - if 2 stages need to access the same memory, problem
+                                - Data hazards: 
+                                    - control/sequence hazards:
+                                        - branch: we don't have yet the result because we are in a branch --> we need a way to throw away 
+                                          what is being executed in the pipeline --> we need to solve the hazard!
+                                          - Stall the pipeline (a Bubble) : if some instruct. depending on the instr. exec. before the 
+                                            required instruction are executed --> we introduce a stall which will last a number of clock 
+                                            cycle needed to make the required ijnstruction to provide the needed results for the current
+                                            instruction!!!
+                                            (we pause the pipeline)
+                                    - Bypassing:
+                                        - another way to solve hazards:
+                                            - reduce stalls
+                                    - Branches prediction: if we, after knowing the results, see the prediction is correct, we keep the branch
+                                                           otherwise, we throw it away!
+                                        - Speculative execution:
+                                           - whenwe have instruction with condition,he starts to execute instruction and in case is wrong throw away
+                                    - Why I cannot read/load 2 elements at the same time? --> higher complexity!!
+                                        - I can have a pipeline for load/store, another for ALU, another for multiplication (more complexity)
+                                        - if I need to access the outside memory, sometimes I don't know how much clock cycles I need
+                                    - Out of order execution:
+                                        - alter the order of execution of instructions: Dynamical scheduling
+                                        - problems: change order --> write after write and write after read can be a problem (WHY??)
+                                        - we use different registers (register renaming) 
+                                    - If we add possibility Out of order and Speculative execution:
+                                        - higher complexity
+                                        - we keep the result in a register and we register or throw away depending on the result???
+                            
+                            - Modern processors:
+                                - Intel Skylake (single core): yellow: ALUs
+                                    - different warps inside alus are the different operations that can be done
+                                    - theoretical Floating Point peak:
+                                        - how to calculate: 
+
+
+                            - Software techniques to perform instruction level parallelism:
+                                - COMPILERS ARE REALLY GOOD AT THIS!!Software techniques to perform instruction level parallelism:
+                                    - COMPILERS ARE REALLY GOOD AT THIS!!!!
+                                    - avoid to have sequence of instruction where we have instructions depending from each other
+                                    - try to have one single loop (not nested loops)!
+                                    - avoid dependencies inside a single loop!
+                                    - compiler can do loop unrolling
+                                    - 
+
+
+            Data parallelism:
+                - Increasing single-core performance (vector operations): 
+                    - vector of different items --> computational units able to perform operations on more elements at the same time
+                    - so we can define vector instructions
+                    - how data is managed
+                    - example: same operation over different arrays
+                    - for more iterations we can have similar instructions/operations
+                        - we can try to merge and put together the same operation on different data
+                        - one instruction on 2 elements of data
+                        - drawback: if we want to perform operation on 2 elements for example: we need 2 ALUS (multiple hardware to work)
+                        - newer processor: instructions can work on 8 or 16 elements arrays
+                        - GPUs: they have long vector instructions (32 or more elements)
+                        - the throughput: one instrcution per clock, but one instruction is divided into several tasks --> we have pipelines anyway
+                        - the operation must be the same!!
+                        - SIMD: single instruction, multiple data
+                            - or Array processor --> but there is a difference between vector and array processor
+                            - vector processor: - since having multiple Alus is costly, he keep one ALU and we move data into the Alus
+                                - we don't need a for loop to control, but we think about a sequence of data put in the machine 
+                                - we process one element at a time
+                                - of course we have a vector register
+                                - Alu processes one element at a time
+                                - But if we have loops smaller than the defined one, we need control to stop the process!
+                                - One element made of 2 items (it is a kind of this ...)
+                                - We can consider registers with 2 or 4 elements --> depend on the architecture
+                                - If we want to have a vector instruction, we want a vector loaded with elements closed in memory
+                                    - but we will load an entire cache line into the cache (64 bytes) 
+                                    - we are reading more elements than needed (for scalar CPU) --> we copy a chunk for each elements(for stride)
+                                        - then we need to load data into a vector to perform for example the matrix multiplication
+                                        - so the lack of performance is related also to the many operations to prepare elements to perform
+                                          operations!
+                                        - Virtual memory: a page is always multiple of a chache line : cannot happen that a part of line is in 
+                                                          a page and another in different page
+                                - Modern SIMD: Today vector and array computing are merged
+                                - Cores of Coka: AVX2 (256 bits long)
+                        - SO WE HAVE VECTOR INSTRUCTIONS (COMPUTATIONS AT THE SAME TIME) AND VECTOR REGISTERS
+                        - GPU faster if we have a lot of data and we need to do the same operation on it            
+                    - Vector arithmetic instructions:
+                        - Reductions:
+                            - we operate a vector on itself
+                            - memory access: 
+                                - HOW WE STORE DATA INTO MEMORY
+                                    - IF WE HAVE STRUCT WITH X AND Y: IF WE HAVE TO ACCESS X ELEMENTS AND THEN Y ELEMENTS, WE ARE OBLIGED TO
+                                      JUMP ONE MEMORY TO ANOTHER (STRIDED ACCESS --> REALLY BAD!!!!)
+                                    - ALTERNATIVE: STRUCT OF ARRAYS --> MUCH MORE EFFICIENT!!!
+                                    - INDEXED ACCESS: ARRAY FILLED WITH ADDRESSES USED FOR INDEXING ANOTHER ARRAY
+                                        - VERY DIFFICULT FOR THE COMPILER TO UNDERSTAND THE CONTENT AND CANNOT PREDICT, PREFETCH, OPTIMIZE
+                                        - AVOID ALWAYS!!!!
+                                        - this can happen when we access to an object (C++) this happens --> we should avoid it!
+                                - Conditionals in loops:
+                                    - Vector masking:
+                                        - evaluates conditions : conditional mask --> it computes both operations --> then the compiler merges
+                                        - thr mask is created at run time
+                                        - by computing the mask, it is avoided to havr branches!!
+                                        - it does make sense if we have vector registers!!
+                                        - there are cases where the compiler decides to not use vector instructions
+                                        - avoid having conditionals inside loops
+                                        - masks can be implemented in different ways:
+                    - Limitations of SIMD:
+                        - we cannot vectorize function calls
+                            - we could inline the function calls??
+                        - we need long loops to take advantage of it
+                        - They are mixture Array computing and Vector computing!!!
+                   
+                   EXAMPLEs:
+                    - Each p. of the grid contains 37 values (37 parameters)
+                    - Lattice-Boltzmann simulation
+                    - 2 functions: 1 compute bound and one memory bound
+                    - for each point, 37 values for the state -->struct of 37 elements
+                    - Matrix multiplication:
+                        - we could try :- if we have large matrices, is happening that we need to read elements multiple times
+                                        - small matrices: kept into the cache
+                                        - big matrices (bigger than cache): sooner or later we will read element that will evict an element
+                                            - to avoid this, what we can do?: cache blocking
+                                                - we can decide a block dimension
+                                                - we select a block and start to do computation just on that block
+                                                - so we need to read blocks of the whole matrix
+                                                - choose size in order to keep data into the cache memory
+                                                - when we compute all the elements, we need to move to another block
+                                                - again we will fill the caches and go on
+                                                - we can try if is it possible to vectorize, or to implement a fma on the code
+                                                - script to run the code multiple times to change the block size
+                                                    - we don't know what is the best block size --> depends on the hardware
+                                                    - we can at first find the best block size --> then we add compiler flags --> then we change the size another time
+                                                    - we assume block size is a square
+                                                    - 3 outer loops (through the dimensions)
+                                                    - they're jumping one block at a time
+                                                    - perf stat -a --per-core -e dTLB-load-misses ./main.c : 
+                                                      - with -e we can set the metrics
+                                                      - -a --per-core stands for the specific cores
+                                                      - list of the different event that can be collected: perf list
+                                                        - list of the metrics
+                                                        - we can check how the metrics change with for example the block size or the matrix size 
+                                                        - we can also check characteristics also by running PAPI:
+                                                            - papi_mem_info
+                    
+
+                    - Shared memory:
+                        - write and read order: depends on the order of operations and from the hardware point of view a lot of things can happen
+                        - we can avoid things to happen from a software point of view (for example doing a synchronization)
+                        - Difference between process and threads: both are software things
+                                                                 - one process has its own memory space (from  a software p. of view)
+                                                                    - from hardware p. of view can be shared resources 
+                                                                 - thread:
+                                                                    - if threads are running on symmetrycal multi processor, threads, in a given 
+                                                                      array, can read what another thread wrote
+                                                                 - we want to map the software concepts into the hardware, so we want to close
+                                                                   from a logic point of view bind a MPI rank in a process, and then spawn
+                                                                   a certain num. of threads. So we force the rank to access only the physical
+                                                                   memory directly linked to physical process
+                                                                   - we need to know which thread is running where
+                                                                   - what is running where?
+                                                                   - openmp: 2 environm. variables to Close or Spread: 
+                                                                       - to check on which cores are running
+                                                                       - when are they useful?
+                    - Distributed memory:
+                        - process = rank
+                        - we need a way to make the processes, running on system with different memories, to interact with each other
+                        - best way is to have one rank for each process --> then I spawn among threads to use the L3 shared memory
+
+
+                    - Profiing tool:    
+                        - if I want to collect cache miss of one thread, or for a single line?
+                        - class of tools:
+                            - profilers: intercepting events of our application
+                            - made of 2 applications:
+                                - extrae: 
+                                - to view things: paraver --> files .prv : we copy files locally and we open them!
+
+
+
+
+
