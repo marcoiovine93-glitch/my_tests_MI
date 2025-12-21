@@ -497,6 +497,185 @@ Architecture course:
 
 
 
+Python Course:
+    - Decorator:
+        - it is important to have a return for the wrapper
+        - it is important to have a return for each "Decorating action", like for example the printing
+    - conda: python package manager (things already installed)
+    - miniconda: better than anaconda: google how to do it
+    - run conda init --> check the .bashrc --> strange stuffs --> when we open a new terminal, we see a new header for shell
+      --> SO WHEN WE NEED TO RUN A COMPLICATED CMAKE OR MAKEFILE, IT'S BETTER TO DO: 
+        conda deactivate
+    - we create different environments
+    - to check environments: conda env list
+    - to install: conda install numpy (example for numpy)
+    - to see packages: conda list
+    - pip : pure Python --> conda brings the binary there are on different location, while pip takes more time
+        - we use it on cluster
+    - to install things: conda install -c conda-forge
+    - we will use jupyter notebook
+        - we need to use the one created for the environment we created?
+    - Jupyter notebooks: good only for teaching (we don't want them)
+    - we don't define data types (it decides)
+    - there are also complex numbers
+    - it is dynamically typed:
+        - for python we could put at first string then integer --> it doesn't complain --> don't rely too much on this freedom!
+    - no limit for integer:
+        - where is it stored? --> complicated way (not efficient)
+    - it is not github friendly
+    - strings: we can concatenate with "+"
+        - be careful with the assignments!!
+    - function: pass by "association" --> it deciding if it calls by value or by reference
+    - help function for built in objects
+    - dir('class') : tells us which methods are available for a given class
+    - blocks: done with indentation
+    - loops: in range --> starts by default at 0
+    - containers:
+    - we can slice with containers: ls[2:7:2]  --> print from 2 to 7 with 2 step
+        - -1 in the range --> we get a reverse
+    - DON'T USE LIST OF LISTS!!!
+        - bad idea, because we are not sure of how much elements we are changing
+    - List: We can directly print for certain values of a variable 
+            - sort function
+            - deleting by index: del
+            - deleting by value: remove
+    - Sets:
+        - each element is unique
+        - mathematic operations
+    - Tuples:
+        - they are not the C++ tuples!!!
+        - they are just like lists, but they are not changeable and are treated more fastly!!!
+    - Commands that start with %: called Magic
+        - important: timer:
+            - %% : some strange results!!
+            - times just the cell of the jupyther notebook!
+    - TO STOP WRONG CODE:
+        - go on Kernel --> stop Kernel --> correct --> Run all cells
+    - Function:
+        def name():  --> pass by value or reference depends on the passed type!!!
+        - we can know it with help, or with: variable?
+        - Interactive python
+        - recursion
+    - Errors: it is not easy to debug!!!
+    - Lambda functions: we don't name a function
+    - Exercises:
+        - we can put the following: (we make sure that only from our location we can run the program??
+          if __name == "__main__":
+            #Call function
+    
+    - Class: 
+        - we need to put self as first argument
+        - we can create class instance 
+        - constructor already created for us 
+        - dot notation to call class method
+        - constructor: def __init__(self, )
+        - assignment is not a copy!!!
+        - SO WE USE OVERLOADING OF OPERATORS???
+    
+    - Modules:
+        - import name of the module as <nameOfTheModule>
+        - if we need only one function: from numpy import cos
+        - to create one:
+            - I can import it !!
+
+    - Pandas
+        - we will see it in the Machine Learning course
+
+    
+    - MPI 
+        - not needed to do Init and Finalize
+        - cluster: we cannot do conda install
+            - instruction --> pip install and create mpi
+            - ATTENTION!!!!!!!!! --> before installing pip, it is necessary to load openmpi --> Otherwise it won't work!!!
+            - to install pip with no cache (on cluster):
+                pip install --no-binary=mpi4py --no-cache-dir --force-reinstall mpi4py
+            - be sure, when creating a new New Environment, to install the needed packages (like numpy, for example)
+            - test that it works
+            - so we need:
+                - serial jacobi
+                - serial game of life
+                    - we need the serial versions because 
+                - parallel of one of them
+            - 
+            
+    - Pybind:
+        - call some parts from another language??
+        - in Python we don't have templates!!!
+
+
+
+    - Numba:
+        - nvhpc
+        - we need nvidia
+        - create new environment (at first deactivate the current one)
+        - install pip
+        - load nvhpc, cuda, what we used on gpus
+        - jit: we are telling to compile things like c functions
+        - we don't have control on it
+        - timing: the second time we measure the true time??
+        - jit parallel: parallel = true --> similar to OpenMp
+        - we can use cuda with jit
+        
+    
+
+    - MPI4PY INSTALLATION ON CLUSTER:
+        - Why we install mpi4py with pip and not with conda?
+            - essentially on a local machine we have mpi4py binary --> this binary is overwritten by conda and it is ok because the way conda installs
+          is in line with the general laptops architecture
+            - On cluster, we have a really specific architecture, so mpi4py which is on cluster, has a different configuration 
+                - IN ORDER TO AVOID IT TO BE OVERWRITTEN, WE INSTALL WITH PIP --> WHEN PIP SEES A binary, it is able to recognize it and 
+              it doesn't overwrite it
+                - Risks:
+                    - the best thing that can happen is that MPI doesn't work
+                    - worst: it seems to work --> but it is slow and has bugs and issues!!!
+
+        - RUN on Cluster for Parallel Jit (Multi-thread)
+            - WE MUST CONFIGURE CPU-PER-TASK LIKE FOR OPEN MP!!!!!!!!
+            - export THREADS PER NUMBA!!!!
+            - remember that the outer loop where we put the @njit is the loop where we need to put the prange!!!!!!
+            
+    
+    - REMEMBER !!! : 
+        - THE WAY WE IMPLEMENTED THE CODE IN PYTHON DOES NOT MAKE ANY SENSE AT ALL!!
+        - WE SHOULD HAVE BEEN USED 2 DIMENSIONAL ARRAYS INSTEAD !!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
