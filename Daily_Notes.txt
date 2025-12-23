@@ -645,9 +645,29 @@ Python Course:
 
 
 
-
-
-
+OpenAcc :
+- It is based on directives
+- ATTENTION!!!: the directives are taken into account at compile, or at run time???
+    - The directives are based on the #pragma acc (in C++) --> BUT ONE MOMENT: the Accelerators are applicable only for GPUs? Or also to CPUs?
+                                                                               - it seems that it is applicable also to distributed comp. with
+                                                                                 CPUs
+    - ATTENTION!! : when we introduce a directive: #pragma acc parallel --> WE ARE NOT INTRODUCING ANY COMMAND RELATED TO PARALLELISL
+        - WE ARE SIMPLY ALLOCATING MEMORY ON THE DEVICE (USUALLY THE GPU!!!!)(FROM THE HOST??)
+        - IN ORDER TO PARALLELIZE A LOOP, TO MAKE IT EXECUTED BY DIFFERENT GANGS (THE GANGS ARE GROUPS OF THREADS) AT THE SAME TIME
+          (BY MAKING COMPUTATION DISTRIBUTED FOR INSTANCE BETWEEN DIFFERENT PARTS OF THE MATRIX --> FOR MATRIX OPERATIONS/SOLVERS)
+          WE NEED TO SPECIFY THE DIRECTIVE: loop !!!!
+        - OF COURSE WE NEED TO CONSIDER, LIKE FOR OpenMP, that it is possible to MAKE THE VARIABLES "private", so to make data accessible by a proper
+          thread and not from the other ones? --> NO!! EACH THREAD WILL HAVE ITS OWN COPY OF THE DATA TO ACCESS TO!!!!
+        - Like OpenMP, it is possible to introduce the "Atomic" directive???? --> WE NEED TO RECALL THIS CONCEPT!!!
+        - In general, when we introduce the #pragma acc directive for the loops in the code, what is done is an allocation of memory on the device,
+          a copy of data from host to device, computation on the device, copy from host to device
+            - we can make this more efficient by introducing STRUCTURED or UNSTRUCTURED data regions!!!
+                - WHAT THE FUCK ARE THE DATA REGIONS??
+                    - THEY ARE INTRODUCED TO AVOID TO : 
+                        ALLOCATE-ON-DEVICE -> COPY DATA --> (AFTER COMPUTATION ON DEVICE) COPY TO HOST - FOR EACH #pragma acc
+                        - we allocate and copy data just at the beginning and at the end of the Data Region (for STRUCTURED DATA REGIONS)
+                        - For UNSTRUCTURED DATA REGIONS, WE FREE DEVICE MEMORY MANUALLY AND DELETE DATA ACCESSED FROM THE DEVICE AFTER THE COMPUT.
+                             - IT IS LESS AUTHOMATIZED AND LET THE USER FOR INSTANCE TO COPY TO HOST BEFORE THE END OF THE DATA REGION!!!
 
 
 
