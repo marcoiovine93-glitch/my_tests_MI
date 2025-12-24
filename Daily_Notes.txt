@@ -678,7 +678,9 @@ OpenAcc :
                 #pragma acc ...
                 {
 
-
+- "present" statement:
+    - it should be used to tell the compiler (?) THAT THE INDICATED DATA IS ALREADY ON THE DEVICE, AND THAT IT IS NOT NEEDED TO REALLOCATE
+      MEMORY FOR DATA? BUT IS IT DONE AUTOMATICLY (BY DEFAULT) IN SOME CASES???
 
 
 
