@@ -669,6 +669,14 @@ OpenAcc :
                         - For UNSTRUCTURED DATA REGIONS, WE FREE DEVICE MEMORY MANUALLY AND DELETE DATA ACCESSED FROM THE DEVICE AFTER THE COMPUT.
                              - IT IS LESS AUTHOMATIZED AND LET THE USER FOR INSTANCE TO COPY TO HOST BEFORE THE END OF THE DATA REGION!!!
 
+- ATTENTION!!!!:
+    - The data regions, delimited by the "{", "}" in C++, need to have these symbols after the line with the "pragma":
+        - it is not possible to write: 
+            #pragma acc ....... {
+                NOOO!
+            - correct way:
+                #pragma acc ...
+                {
 
 
 
