@@ -543,9 +543,9 @@ Python Course:
         - each element is unique
         - mathematic operations
     - Tuples:
-        - they are not the C++ tuples!!!
+        - they are not the C++ tuples!!! ---> In C++ we used it for recursion!!!????
         - they are just like lists, but they are not changeable and are treated more fastly!!!
-    - Commands that start with %: called Magic
+    - Commands that start with %: called Magic ----> ONLY WITH JUPITER NOTEBOOK???
         - important: timer:
             - %% : some strange results!!
             - times just the cell of the jupyther notebook!
@@ -564,7 +564,7 @@ Python Course:
             #Call function
     
     - Class: 
-        - we need to put self as first argument
+        - we need to put self as first argument ---> WE NEED TO DO THIS FOR EVERYYY METHOD DEFINED FOR THE CLASS!!!
         - we can create class instance 
         - constructor already created for us 
         - dot notation to call class method
@@ -600,7 +600,7 @@ Python Course:
             
     - Pybind:
         - call some parts from another language??
-        - in Python we don't have templates!!!
+        - in Python we don't have templates!!! --> It is more correct to state that we don't have Template functions or Template variables!!!
 
 
 
@@ -639,6 +639,20 @@ Python Course:
         - THE WAY WE IMPLEMENTED THE CODE IN PYTHON DOES NOT MAKE ANY SENSE AT ALL!!
         - WE SHOULD HAVE BEEN USED 2 DIMENSIONAL ARRAYS INSTEAD !!!
 
+
+    - Pybind:
+        - it let us to introduce an interface to run C++ programs through Python code
+            - what we do is to call directly the functions defined in the C++ scripts
+            - in fact we introduce direct calls to:
+                - C++ functions 
+                - C++ Classes (with the corresponding functions as well)
+            - How to run it?
+                - what we do is to generate a sort of library originating from the "Interface C++ file":
+                    - technically what we are planning to do is a "BINDING" of the functions, and of the class functions as well, from C++ to Python
+                    - we compile in a way that gives us the creation of a Library: 
+                        - WE CREATE A  .so file:
+                            a compiled library file type following the ELF (Executable and Linkable Format) structure. They're used by Linux and Unix                            -based operating system like Ubuntu, Debian, and CentOS, and they allow applications to share functionality by 
+                            dynamically loading various features at runtime --> so it works essentially at runtime!!!
 
 
 
