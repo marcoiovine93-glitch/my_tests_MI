@@ -700,11 +700,95 @@ OpenAcc :
 
 
 
-
-
-
-
-
+12/01/2026:
+    NUMERICAL ANALYSIS COURSE:
+        - Andrea Cangiani
+        - Stefano Piani
+        - program: - numeric diff equat.
+                   - vector spaces, normes etc
+                   - basic linear algebra
+                   - iterative solution
+                   - intro to Finite elements
+                   - discretization of time dependent problems
+        - Analysis:
+            - to do scientific comouting: what we are doing??
+            - code must do exactly what theory predicts!!
+            - books: quarteroni and Mayers and Morton
+                - Golub van Loan
+                - Lloyd
+        
+        - Ordinary diff. equation: 
+            - initial value problem --> assume uniqueness and existence of the solution
+                - we discretize the time (subdivide in intervals)
+                - we take into account the corresponding vector of discrete solution (for each time step)
+                - Euler's method:
+                    - Taylor formula:
+                        - we remove the reminder --> we get the u(n+1) = u(n) + tau*f(tn, un)
+                        - we set u' = f
+                        - we get a divided difference
+                - Convergence:
+                    - and how fast is it converging??
+                - Different derivation of Euler's method:
+                    - by quadrature: integrating the ODE in the subinterval tn,tn+1]
+                    - trapezoidal rule:
+                        - is higher order method, but it requires the solution of a non-linear equation at every time step (WHY???) --> implicit scheme (WHY???)
+                        - balance between costs and accuracy --> to decide what method to use
+                            - implicit euler needs less steps to get a certain accuracy in the solution
+                        - multistep: the current time solution doesn't depend only on the previous time step, but on also other previous steps!!!
+                            - we usually use one step methods in order to get a sufficient number of solution needed for multi-step method!!
+                - Various divided differences:
+                    - what is the best for approximation??
+                    - Divided difference error analysis:
+                        - ERROR BOUNDS?????? (WHY????)
+                        - they are a priori bounds (they depend on the function)
+                        - how do we prove the formulas???
+                            - on the notebook!!
+                        - we can take also more time instants --> multi-step formulas!!!
+                        - if we don't use simmetry (central schemes??) we need to ask for more evaluations to increase the order!!!
+                        - Review the log log plot for the errors --> we should see that the 24 at the denominator makes the approximation better!!
+                        - we can approximate the second derivative with a WHAT???? -->
+                            - divided differences for higher derivatives:
+                        
+                 - First exercise:
+                    - solution to -laplacian equal to f --> we will see why we add the minus
+                    - python library:
+                        - tools to manage how to build it
+                            - hetch:
+                                - folder: /dev/shm : poetry new <lib_name>
+                                - ls -lh : I see the folder created 
+                                    - I go inside:
+                                        - pyproject : it is default created
+                                            - name, version, our name, and some tools that can be used
+                                        - poetry add numpy scipy --> poetry does : write in the dependency the packages, and it created a virtual
+                                          env with my package in order to use it
+                                        - poetry.lock -> it tells us what kind of packages we are using!
+                                        - poetry helps to manage packages
+                                        - test: small script to check the code works properly
+                                            - small routine to check the code is working well
+                                            - instead of throwing routine away, we can set tools to use it 
+                                            - we use pytest
+                                            - poetry sync --> ask to install the same virtual env of the file I blocked
+                                            - poetry run ls --> I'm telling poetry to run on the virtual env that poetry created!!
+                                            - poetry run pytest
+                                            - Exercise:
+                                                - is structured asa library (He already run poetry run for us)
+                                                - function solve_poisson --> we need to implement it
+                                                    - rhs: right hand side, Callable: it is a function --> in Python are first class citizen
+                                                        - there is no difference between what we can do with a function or a variable
+                                                        - we can pass a function as an argument for instance
+                                                    - why we use solve_poisson
+                                                        - we use it becausw the Bcond was hard coded --> in this situation we don't know how many 
+                                                          points we will have on the boundary
+                                                    - typing in python: we are telling: n_points is an integer for instance (it is like an integer)
+                                                        - for instance boundary_condition is a dictionary
+                                                    - Enumerator : it is introduced to make Side can assume only certain values!!
+                                                    - Boundary conditions: are expected to be one-dimensional!!
+                                                    - tuple: I want three arrays (WHAT ARE THEY??)
+                                                    - What Pytest do?: it runs code with certain values!!
+                                                    - IT IS VERY VERY SUBTLE HOW WE ENUMERATE THE NODES!!!!
+                                                    - WE CAN DECIDE TO SET THE DIMENSION OF THE MATRIX AS 3X3 OR 5X5(REASONABLE CHOICE???)
+                                                    - grid_x[0,0] : we can choose if it is the down_left or up_left, and if the first index stands
+                                                      for x-axis or y-axis!!
 
 
 
