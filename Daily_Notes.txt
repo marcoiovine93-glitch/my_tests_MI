@@ -753,12 +753,24 @@ OpenAcc :
                     - solution to -laplacian equal to f --> we will see why we add the minus
                     - python library:
                         - tools to manage how to build it
-                            - hetch:
                                 - folder: /dev/shm : poetry new <lib_name>
                                 - ls -lh : I see the folder created 
                                     - I go inside:
                                         - pyproject : it is default created
                                             - name, version, our name, and some tools that can be used
+                                        - install poetry : choose the curl one !!! --> - means that if the path is a minus, read from the default
+                                            path !!!!
+                                        - PROBLEM WITH poetry INSTALLATION:
+                                            - WHEN TRYING TO RUN THE COMMANDS : poetry lock and poetry sync, I got the error related to Python:
+                                                - [Errno 2] No such file or directory: 'python'
+                                                - STEFANO SOLVED THIS BY INSTALLING PYTHON MAKING IT IN A WAY THAT Python3 must be seen as Python
+                                                 (FOR SOME REASONS poetry wanted the folder to be named in this way):
+                                                  - we run the command:
+                                                    sudo apt install python-is-python3
+                                        - PROBLEM WITH INSTALLATION:  
+                                            - NOT ACTIVATE AND DEACTIVATE CONDA ENVIRONMENT BEFORE INSTALLING POETRY!!!!
+                                            - IF YOU DID IT, TRY DO DO: onda config --set auto_activate_base false
+                                                - THEN, UNISTALL POETRY, INSTALL AND SO ON!!! (PYLOCK AND PYSYNC)
                                         - poetry add numpy scipy --> poetry does : write in the dependency the packages, and it created a virtual
                                           env with my package in order to use it
                                         - poetry.lock -> it tells us what kind of packages we are using!
@@ -771,7 +783,7 @@ OpenAcc :
                                             - poetry run ls --> I'm telling poetry to run on the virtual env that poetry created!!
                                             - poetry run pytest
                                             - Exercise:
-                                                - is structured asa library (He already run poetry run for us)
+                                                - is structured as a library (He already run poetry run for us)
                                                 - function solve_poisson --> we need to implement it
                                                     - rhs: right hand side, Callable: it is a function --> in Python are first class citizen
                                                         - there is no difference between what we can do with a function or a variable
@@ -787,11 +799,35 @@ OpenAcc :
                                                     - What Pytest do?: it runs code with certain values!!
                                                     - IT IS VERY VERY SUBTLE HOW WE ENUMERATE THE NODES!!!!
                                                     - WE CAN DECIDE TO SET THE DIMENSION OF THE MATRIX AS 3X3 OR 5X5(REASONABLE CHOICE???)
+                                                    - editor: use pysharm !!
                                                     - grid_x[0,0] : we can choose if it is the down_left or up_left, and if the first index stands
                                                       for x-axis or y-axis!!
 
-
-
+                  - Second lesson (13/01/2026):
+                        - Condition numbers and sparse matrices:
+                            - if we add some convection to Poisson --> the tecnique is just again a linear system
+                            - it could be necessary to solve multiple linear systems
+                            - but it is always a matter of solving a linear system
+                            - TRENT500: LINPAC --> computation is roughly a linear system!!
+                            - CPU are designed to solve linear systems
+                            - how do we solve linear system?
+                            - how easy we do it?
+                            - can a computer solve a linear system?
+                                - we use floating point (I introduce an error)
+                                - how many digits? 32 or 64 bits
+                                    - how many digits is 32 bits? 6/7 digits
+                                    - and 64? 16 digits
+                                    - rappresentation error: if I put 1.00000001 in computer --> I get: 1 --> this is the concept of rappres. error?
+                                    - 0.1 + 0.2 - 0.3 = 5.55e-17 !!!!!!!! 
+                                        - floating point operations are independent on the language used!!!
+                                        - why is not 0 ? it is a rappresentation error!
+                                        - 0.1 = it is nice --> the numbers that are nice are the ones writable as number over power of 10
+                                        - for example 1/3 is bad (periodical digits) --> rounding error!!!
+                                        - these errors can grow and become even more complicated to manage
+                                        - relative error: we compare the error to the initial error!! (it is a ratio that gives us the importanc eof the error!!
+                                        - our computation can affect also vectors, not only scalars
+                                        - given x, I compute sinx --> this is really well conditioned
+                                        - well conditioned and ill conditioned problems !!!!
 
 
 
