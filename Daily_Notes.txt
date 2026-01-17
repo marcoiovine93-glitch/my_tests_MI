@@ -700,6 +700,11 @@ OpenAcc :
 
 
 
+
+
+
+
+
 12/01/2026:
     NUMERICAL ANALYSIS COURSE:
         - Andrea Cangiani
@@ -832,7 +837,64 @@ OpenAcc :
 
                             - Meshgrid function:
                                 - 
+                    
+                    - Lecture 4:
+                        - L-U decomposition: what are the limits of these methods?? Should we look other methods??
+                            - if I have a big matrix which is not dense?
+                                - computer needs to do a product and we can result in a fill in for example
+                                - we cannot store a matrix really big --> too much big for storage
+                                - so we need methods that can manage to solve problems with big matrix dimensions!!
+                                - The alternative is by using iterative methods --> MADE OF A CERTAIN AMOUNT OF STEPS
+                                    - we are solving a system which is symmetric and positive definite --> most simple case
+                                    - we build a sequence of vectors such that the sequence converges to the solution
+                                    -  
+                    - Attention!!!:
+                        - The Jacobi iterative method, as well as the Gauss Siedel, converge just if the matrices are strictly diagonally 
+                          dominant!!! Otherwise we look the simulation run forever with really strange numbers come up !!!
 
+
+                    - Convergence note:
+                        - There is a huge and strange issue when trying to run the simulation of Jacobi with a matrix free approach (as we saw
+                          during the course, this equivalent, with the exception of the right hand side of the equation, to solving the Jacobi 
+                          seen during the previous courses!!
+                        - The issue is the following:
+                            - in the file CSolver.py, we have the class with a provided member function (jacoi_solver) which executes the iterations
+                            - when we set a number of iterations as the stopping condition, we insert the error at each iteration as an element
+                              of an allocated array of size equal to the n. of iterations
+                            -
+                          - The issue is the following:
+                            - in the file CSolver.py, we have the class with a provided member function (jacoi_solver) which executes the iterations
+                            - when we set a number of iterations as the stopping condition, we insert the error at each iteration as an element
+                              of an allocated array of size equal to the n. of iterations
+                                - in this case the error seems to decrease properly
+                            - On the other hand, if I set the tolerance value as the stopping condition, and I introduce an evaluation of the error
+                              for contiuning or not the iterative process, this time considering a scalar error recomputing through each iteration  
+                                  - in this case the error seems to decrease properly
+                            - On the other hand, if I set the tolerance value as the stopping condition, and I introduce an evaluation of the error
+                              for contiuning or not the iterative process, this time considering a scalar error recomputing through each iteration
+                              the process starts to go forever and, having the possibility to print the error at each step, we see that it
+                              oscillates a lot between huge and really small numbers --> it seems that the evaluation of the condition gives a 
+                              floating point problem
+                            - HOW CAN WE SOLVE THIS ISSUE and WHY IS IT HAPPENING??? : 
+                                - when I evaluate the error compared to the limit I set, I'm comparing a first estimate (for the first iterations) 
+                                  which is quite huge with respect to the tolerance. As you noted, this error is in general affected by both the 
+                                  order of the discretization (which depends on h) and on the numerical scheme,together with the boundary values 
+                                  and so on. So comparing a huge number to a really small one, can result in floating point issues (lose of 
+                                  precision) and strange oscillating behaviour. This comparison could make sense if we have for instance 
+                                  we start from an initial guess that is not so great --> BUT ESSENTIALLY THIS SHOULD NOT CAUSE ANY ISSUE
+                                  --> THE PROBLEM IS THAT, WE ARE COMPUTING A QUANTITY THAT IS NOT DECREASING MONOTHONICALLY THROUGH THE JACOBI
+                                      ITERATION, BECAUSE IN GENERAL IS AFFECTED BY THE DISCRETIZATION ERROR, BOUNDARY ERRORS, INTERVAL LENGTH
+                                      AND SO ON --> SO FOR ITERATIVE METHODS, DOES MAKE SENSE TO EVALUATE THE RESIDUAL, NOT THE COMPARISON 
+                                      TO THE EXACT SOLUTION --> BECAUSE THE RESIDUAL WILL, OF COURSE DECREASE MONOTONICALLY!!!!!
+
+                                                                                                                                
+
+- Note on GIT:
+    - to avoid possible issues when trying to pull new material to the main branch branch of our fork (which has been forked from a web Repo)
+      it could be better to create a dev branch at beginning --> in this way we can avoid for exaple possible conflicts that happen when
+      for example we modify resources that are then updated on the web Repo --> in that case the pull is forbidden, and could as well have 
+      issue with the push --> in general we will have different commits locally and on the web repo --> otherwise with a proper branch,
+      we will have the possibility to directly merge the developments that we do, with the new updated files on the web Repo!!!
 
 
 
