@@ -615,7 +615,7 @@ Python Course:
         - timing: the second time we measure the true time??
         - jit parallel: parallel = true --> similar to OpenMp
         - we can use cuda with jit
-        
+        - WARNING !!!!: WE WERE NOT ABLE TO RUN NUMBA WITH POETRY LIBRARY (NUMERICAL ANALYSIS COURSE) --> WHY??        
     
 
     - MPI4PY INSTALLATION ON CLUSTER:
