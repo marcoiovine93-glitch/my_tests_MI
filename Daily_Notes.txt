@@ -899,6 +899,12 @@ OpenAcc :
 
 
 
+- Tools to check for memory leaks and memory issues:
+    - Not only Valgrid!!
+    - we have also: Hellgrid, Ages Sanytizer
+    - In C++ we don't have these problems, if we use vectors!! --> But C++ is more rich than C!!!
+    - When choosing a programming language --> memory management and possible memory issues, compilation times!!!
+    - C is a language simler semantically!!!
 
 
 
