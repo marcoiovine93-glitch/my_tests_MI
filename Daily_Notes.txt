@@ -893,6 +893,7 @@ OpenAcc :
     - to avoid possible issues when trying to pull new material to the main branch branch of our fork (which has been forked from a web Repo)
       it could be better to create a dev branch at beginning --> in this way we can avoid for exaple possible conflicts that happen when
       for example we modify resources that are then updated on the web Repo --> in that case the pull is forbidden, and could as well have 
+   
       issue with the push --> in general we will have different commits locally and on the web repo --> otherwise with a proper branch,
       we will have the possibility to directly merge the developments that we do, with the new updated files on the web Repo!!!
 
@@ -911,4 +912,67 @@ OpenAcc :
 
 
 
+HPC Cluster course:
+- front end node to access
+- we could have also commodity cluster
+- needs:
+    - mounted on rack
+    - must be interconnected
+    - software to connect
+    - software to reserve resources to indiv users
+    - cluster: environment to run jobs
+    - node: where you're running
+    - access node: let us access
+    - master node : managm server
+    - batch scheduler: schedules jobs
+    - U: unit of thikness" for servers --> more U --> more thinkness!
+    - we can have a blade system
+    - to install cluster: Cobbler
+    - we want the installation go automaticly
+    - NETWORKING:
+        - connections , packet, etc.
+        - 2 computers -> connect with a cable (share information 
+        - 3 comp. --> cable connection doesn't scale --> so we need swithcers
+        - so we create a local area network ---> but we eed a device to route (router)
+        - the roouter is connected through internet
+        - the larger is the amount of devices to cross, the more latency we will have
+        - physical network topologies --> they are usually point of possible failure __> if I fail in that point, everything fails
+            - s during the cold war grids were built to isolate possibly in case of failure
+        - topologies depend on application to run and on the hardware
+        - Packet: send a letter --> we send infos to the destination --> we need to specify precisely the infos --> example: www. provides authom.
+          the place we want to reach
+        - Network stack: 
+            - Protocols, network
+            - ISO/OSI model : from physical/local to network and then Application layer
+            - data can be transferred in several ways!!
+            - TCP/IP model
+       -  Email sending:
+            - encapsulation : we increases size to add proper infos for destination and so on
+                - receiver: de-encapsulation
+                - ....
+       - we have mutiple applic. running at the same time and more users :
+            - I need the possibility to use the same IP address: PORTS
+            - we can have priviledged ports
+            - SSH : is using TCP (is a protocol??)
+            - we have also UDP 
+            - Internet protocol
+            - IP address: identifies host on a network
+                - network and host portion
+                - assigned statically or dynamically
+            - Routing
+            - Some IP addresses are reserved --> cannot go directly to internet (private in our local are network)
+            - First level domain (.it, .com : can be referred to country for example)
+            - Second level : institution
+            - third level
+            - So we get the Fully qualified domain name (FQDN)
+            - and we get DNS ???
+            - static or dynamuc IP assignment : 
+                - it can be assigned randomly from a pool for example (like when we connect to the Wifi
+                - all the machines of the distributed hardware must be bound to the same IP address (for hpc cluster for example)
+            - MAC address : Media access control access
+                - physical address, unque
+                - assigned by the manufacturer
+            - Cables and connectors:
+                - always a delay (also for fiber light) --> because the speed of light is finite
+            - WE NEED TO KNOW THAT THINGS EXIST TO EVENTUALLY UNDERSTAND ISSUES 
 
