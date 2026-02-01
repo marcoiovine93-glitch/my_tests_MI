@@ -3037,6 +3037,7 @@ Last login: Sat Jan 24 02:27:09 2026 from 192.168.16.1
                                                                         - c02 has hostname: c02.hpc
                                                                         - c01 has c01 WHY???
                                                                  - SO WE CHANGED THE c01 hostname with the command: hostnamectl set-hostname c01.hpc
+                                                                  
                                                                  - ANOTHER IMPORTANT THING:
                                                                     - WE ARE STARTING TO RUN OUR PLAYBOOKS with the command:
                                                                         - ansible-playbook -i inventory slurmplay.yml
@@ -3047,14 +3048,24 @@ Last login: Sat Jan 24 02:27:09 2026 from 192.168.16.1
                                                                  - File for system-wide configuration (changes):
                                                                     - SlurmCtIdHost = master (it is the hostname of the master node --> find it
                                                                       by running "hostname" on the master node)
-                                                                    - Memory, CPUs, Sockets, Cores, Threads 
-                                                                 
+                                                                    - Memory, CPUs, Sockets, Cores, Threads  EXPRESSED EXPLICITLY
+                                                                      - BECAUSE otherwise it shows an error linked to the architecture!!
+                                                                    - We set explicitly the IP addresses of the compute nodes!!!
+                                                                        
                                                                  - LOGS for SLURM: tail -n 50 /var/log/slurmctld.log
                                                                     - error: _slurm_rpc_node_registration node=c02: Invalid argument
-
-
-
-
+                                                                    - but if we do: scontrol ping (REALLY IMPORTANT), we get: 
+                                                                        - IS UP: this means that the master and the nodes are 
+                                                                          sending and receiving
+                                                                        - so WHY the nodes are down?
+                                                                            - MAYBE THE FIREWALL!!: IT IS ACTIVATED ON THE COMPUTE NODES!!!
+                                                                            - NOW WE DEACTIVATE IT IN THE FINAL ROLE OF THE PLAYBOOK!!!
+                                                                   - REMEMBER!!!!!
+                                                                        - YOU NEED TO FUCKING RESTART NAMED, SLURMCTLD , SLURM IN ALL THE UNITS!!
+                                                                          BOTH MASTER AND COMPUTE NODES!!!!!!
+                                                                        - OTHERWISE THEY REST IN STATE: DOWN!!!!!
+                                                                   - TO SEE THE LOGS:
+                                                                        - tail -n 50 /var/log/slurmctld.log
 
 
                                                        EXERCISE 9:
