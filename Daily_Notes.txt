@@ -3067,7 +3067,58 @@ Last login: Sat Jan 24 02:27:09 2026 from 192.168.16.1
                                                                    - TO SEE THE LOGS:
                                                                         - tail -n 50 /var/log/slurmctld.log
 
+                                                                   - Now both the compute nodes are in status: drained!!!
+                                                                        - we modified the host name of both the compute nodes: c01 and c02
+                                                                   
+                                                                   - AFTER A LOT OF CHANGES, WE RESET THE HOSTNAME FOR THE COMPUTE NODES AS 
+                                                                     c01 and c02
+                                                                        - c01 and c02 cannot resolve the "master", but only "master.hpc"
+                                                                        - so they are not able to connect
+                                                                        - the strange thing is that if I change the host names to c01.hpc and 
+                                                                          c02.hpc, they resolve also "master"
+                                                                        - WE ADDED MANUALLY THE IP address of the master with the name "master"
+                                                                          for both the nodes!!!!
 
+                                                                   - THE MASTER CONTINUES TO SEE THE NODES IN DRAINED STATE, BUT SINCE 
+                                                                     THE SYSTEMCTL SEEMS ACTIVE AND STABLE, WE RUN.
+                                                                     scontrol update nodename=c[01-02] state=resume
+                                                                     - NOW THEY SEEM IDLE
+                                                                     - IF THEY KEEP BEING IDLE, OK, IF THEY IMMEDIATELY TURN TO DRAINED,
+                                                                       THERE IS A PROBLEM!!
+                                                                     - for us, it happens for the reason retrievable in this way:
+                                                                       scontrol show node c01 | grep -i reason
+                                                                     - THE REASON IS: LOW REAL MEMORY
+                                                                        - so in the slurm.conf file, we set a memory lower than the real (less 
+                                                                          than 3387!!
+                                                                        - we reduced the memory to 3000
+                                                                  - TASKS:
+                                                                    - prologue and epilogue are intructions executed before the run of the job
+                                                                     and after it has finished
+                                                                    - we need a cgroup: a ASCII file which defines parameters used by cgroup
+                                                                      plugins --> WE NeeD TO PUT IT IN THE SAME FOLDER OF THE FILE:
+                                                                      slurm.conf
+                                                                    - we create the file cgroup.conf in the folder: /etc/slurm/cgroup.conf?
+                                                                    - WE CREATE IT WITH ANSIBLE!!
+                                                                    - WE CREATE IT ON EVERY NODE!!!
+                                                                    - then we need to restart slurmctld (master) and slurmd (nodes)
+                                                                    - cgroup defines the boundaries for the job, its limits!!
+                                                                    - WE ADD THE cgroup in the role: sys_wide_config
+                                                                    - this is the configuration for the system wide configuration role:
+                                                                     files
+                                                                        │   ├── cgroup.conf
+                                                                        │   ├── slurm.conf
+                                                                        │   ├── task_epilogue
+                                                                        │   └── task_prologue
+                                                                        └── tasks
+                                                                        └── main.yml
+                                                                    - Now let's create an example job
+                                                                    - we did a test with the user: testuser
+                                                                    - job: test_job.sh
+                                                                    - result: OK!! Prologue:OK! Epilogue:OK!
+
+
+
+                                                        
                                                        EXERCISE 9:
                                                             - Infiniband
                                                                 - one type that can be put in a cluster
@@ -3403,5 +3454,30 @@ TMAX :
  
     
  
+
+
+
+
+
+Storage course:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
