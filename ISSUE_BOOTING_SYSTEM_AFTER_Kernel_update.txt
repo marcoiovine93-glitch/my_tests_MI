@@ -1,0 +1,51 @@
+CAUSES:
+- Before the issue came out at the rebooting of the system, we observed that there was an error when trying to upgrade the
+  system --> in particular OpenAFS seemed to be not ugraded at a version compatible with the new Kernel 6.17.0
+- This was the huge mistake: this problem was just the top of the real issue, because the upgrade problems were probably caused by the problem
+  with the new Kernel version;
+
+
+ISSUE:
+- whnen trying to reboot, we saw the purple screen with : 
+KERNEL PANIC!
+Please reboot your computer.
+VPS: Unable to mount root fs on unknown-block(0,0)
+
+- The only way to do something, was to turn off the system with the button and turn on again
+- We then saw a menu: the only selectable options were: Ubuntu, UEFI (the firmware)
+- By clicking on the Ubuntu option, we got the same purple screen described before;
+- so clicked "e" on the Ubuntu option --> then Ctrl+C
+- A new screen with the user as "grub>" will open up
+- In this screen it is possible to chedck the system partitions available
+- so a thing that we can do is to run the ls command to check them
+- The proper to see it is: WE ENTERED THE GRUP SHELL!!
+- WE need to find which partition contains the Ubuntu Files for the booting of the system
+    - so we run ls <name_of_partition> (for example: (hd0,gpt2))
+    - we run it until we find the one that contains the files
+- ONCE WE FIND IT, we set the root as the found partition:
+    - root <name_of_partition>
+- we run: linux /vmlinuz-6.14.0-37-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv
+- we run: initrd /initrd.img-6.14.0-37-generic
+- boot
+- THE SYSTEM IS ABLE TO BOOT. WHY?
+    - because the issue consists in the absence of a link to make Ubuntu to run on the specific File System corresponding to 
+      the computer and, more important, to the Permanent storage system (An NVMe SSD) --> this bridge is the file initrd !!!
+    - initrd provides the drivers needed to make Ubuntu capable to a Storage system of that kind
+    - it is important to note that our PC make use also of LVM to manage the files !!! (Logical volumes and probable Volume groups!!)
+- BUT AFTER REBOOTING THE SYSTEM, WE NEED TO MAKE SURE THE CHANGES ARE PERMANENT:
+    - we modify the file: /etc/initramfs-tools/modules
+        - we add the lines:
+        nvme
+        dm-mod
+        dm-mirror
+        dm-snapshot
+    - we run commands to reinstall/update both initramfs and grub :
+        - sudo grub-install /dev/nvme0n1
+        - sudo update-initramfs -u -k all
+        - sudo update-initramfs -u -k 6.14.0-37-generic
+        - sudo update-initramfs -c -k 6.17.0-14-generic (we need to update for both versions of the kernel)
+        - sudo update-grub
+
+
+
+

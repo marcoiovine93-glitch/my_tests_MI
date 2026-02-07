@@ -3461,14 +3461,62 @@ TMAX :
 
 Storage course:
 
+- 2nd lesson:
+    - it's not jus doncifentiality, also integribilty
+    - it is not guaranted that data has not been intercepted 
+    . cases of interente providers injedting adds on website because cmoning throough routers --> confidentiality affected with no intention
+    - TLS and SSH
+        - TLS: laid security
+            - we can encapsulate whatever we want in it
+            - additional signature -> the key must belong to a certain user!! 
 
 
 
 
 
 
+AFS module version problem:
+- when we try to upgrade, we receive an error
+- checking the logs, we get:
+    - In file included from rx_kmutex.c:24:
+ /var/lib/dkms/openafs/1.8.10/build/src/afs/LINUX/osi_compat.h: In function ‘grab_cache_page_write_begin’:
+ /var/lib/dkms/openafs/1.8.10/build/src/afs/LINUX/osi_compat.h:168:12: error: implicit declaration of function ‘__grab_cache_page’; did you mean ‘read_cache_page’? [-Werror=implicit-function-declaration]
+   168 |     return __grab_cache_page(mapping, index);
+       |            ^~~~~~~~~~~~~~~~~
+       |            read_cache_page
+ /var/lib/dkms/openafs/1.8.10/build/src/afs/LINUX/osi_compat.h:168:12: warning: returning ‘int’ from a function with return type ‘struct page *’ makes pointer from integer without a cast [-Wint-conversion]
+   168 |     return __grab_cache_page(mapping, index);
+       |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ cc1: some warnings being treated as errors
+ make[6]: *** [/usr/src/linux-headers-6.17.0-14-generic/scripts/Makefile.build:287: rx_kmutex.o] Error 1
+ make[5]: *** [/usr/src/linux-headers-6.17.0-14-generic/Makefile:2016: .] Error 2
+ make[4]: *** [/usr/src/linux-headers-6.17.0-14-generic/Makefile:248: __sub-make] Error 2
+ make[4]: Leaving directory '/var/lib/dkms/openafs/1.8.10/build/src/libafs/MODLOAD-6.17.0-14-generic-SP'
+ make[3]: *** [Makefile:248: __sub-make] Error 2
+ make[3]: Leaving directory '/usr/src/linux-headers-6.17.0-14-generic'
+ FAILURE: make exit code 2
+ make[2]: *** [Makefile.afs:283: openafs.ko] Error 1
+ make[2]: Leaving directory '/var/lib/dkms/openafs/1.8.10/build/src/libafs/MODLOAD-6.17.0-14-generic-SP'
+ make[1]: *** [Makefile:188: linux_compdirs] Error 2
+ make[1]: Leaving directory '/var/lib/dkms/openafs/1.8.10/build/src/libafs'
+ make: *** [Makefile:15: all] Error 2
+DKMSKernelVersion: 6.17.0-14-generic
+Date: Fri Feb  6 16:13:31 2026
+DuplicateSignature: dkms:openafs-modules-dkms:1.8.10-2.1ubuntu3.4:/var/lib/dkms/openafs/1.8.10/build/src/afs/LINUX/osi_compat.h:168:12: error: implicit declaration of function ‘__grab_cache_page’; did you mean ‘read_cache_page’? [-Werror=implicit-function-declaration]
 
-
+- The error above is linked to the version of openafs, that should be updated.
+- So we try to update manually by downloading the .tar.gz file and untaring it (tar -xzvf openafs-1.8.15pre1-src.tar.gz)
+- we then run the command to configure it (inside the folder get from the untar) :
+    ./configure --enable-transarc-paths=no --with-linux-kernel-headers=/usr/src/linux-headers-$(uname -r)
+- Then make -j 10
+- Eventually we run:
+    make install
+- TO CHECK THE INSTALLATION:
+    - /usr/local/bin/fs --version --> if we get an error, we run: sudo ldconfig (this command makes the system to link the new installed libraries)
+    - sudo modprobe openafs (this command loads the afs module) --> if gives error --> it means that the secure boot is enabled! 
+        --> disable it (from the bios) and rerun the command
+    - check openafs is active as a service: sudo systemctl status openafs-client
+ 
 
 
 
