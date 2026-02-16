@@ -1,0 +1,110 @@
+Benchmark from second VM Machine (client):
+
+Benchmark Baseline:
+
+baseline: Laying out IO file (1 file / 512MiB)
+Jobs: 1 (f=1): [r(1)][100.0%][r=5016KiB/s][r=1254 IOPS][eta 00m:00s]
+baseline: (groupid=0, jobs=1): err= 0: pid=11007: Thu Feb  5 09:37:10 2026
+  read: IOPS=1298, BW=5195KiB/s (5319kB/s)(50.7MiB/10001msec)
+    slat (usec): min=409, max=7332, avg=764.52, stdev=264.03
+    clat (nsec): min=1356, max=1013.7k, avg=2880.39, stdev=9225.88
+     lat (usec): min=414, max=7340, avg=767.40, stdev=264.56
+    clat percentiles (nsec):
+     |  1.00th=[  1512],  5.00th=[  1704], 10.00th=[  1816], 20.00th=[  1992],
+     | 30.00th=[  2128], 40.00th=[  2288], 50.00th=[  2608], 60.00th=[  3248],
+     | 70.00th=[  3312], 80.00th=[  3408], 90.00th=[  3504], 95.00th=[  3696],
+     | 99.00th=[  6112], 99.50th=[  8768], 99.90th=[ 18560], 99.95th=[ 27008],
+     | 99.99th=[259072]
+   bw (  KiB/s): min= 4936, max= 5584, per=100.00%, avg=5195.20, stdev=143.56, samples=20
+   iops        : min= 1234, max= 1396, avg=1298.80, stdev=35.89, samples=20
+  lat (usec)   : 2=20.48%, 4=76.80%, 10=2.39%, 20=0.25%, 50=0.07%
+  lat (usec)   : 500=0.01%
+  lat (msec)   : 2=0.01%
+  cpu          : usr=0.94%, sys=3.55%, ctx=13005, majf=0, minf=11
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=12988,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=5195KiB/s (5319kB/s), 5195KiB/s-5195KiB/s (5319kB/s-5319kB/s), io=50.7MiB (53.2MB), run=10001-10001msec
+
+Disk stats (read/write):
+  xvda: ios=12886/48, sectors=103088/448, merge=0/5, ticks=9681/31, in_queue=9713, util=96.56%
+
+
+
+
+SMB Local:
+
+local-smb: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+fio-3.39
+Starting 1 process
+local-smb: Laying out IO file (1 file / 512MiB)
+Jobs: 1 (f=1): [r(1)][100.0%][r=7112KiB/s][r=1778 IOPS][eta 00m:00s]
+local-smb: (groupid=0, jobs=1): err= 0: pid=11044: Thu Feb  5 09:39:33 2026
+  read: IOPS=1883, BW=7532KiB/s (7713kB/s)(73.6MiB/10002msec)
+    slat (usec): min=39, max=12978, avg=526.00, stdev=444.96
+    clat (nsec): min=1295, max=1282.4k, avg=2492.48, stdev=9893.28
+     lat (usec): min=40, max=12984, avg=528.49, stdev=445.64
+    clat percentiles (nsec):
+     |  1.00th=[  1368],  5.00th=[  1464], 10.00th=[  1592], 20.00th=[  1704],
+     | 30.00th=[  1880], 40.00th=[  2160], 50.00th=[  2384], 60.00th=[  2480],
+     | 70.00th=[  2640], 80.00th=[  2896], 90.00th=[  2992], 95.00th=[  3120],
+     | 99.00th=[  4960], 99.50th=[  7840], 99.90th=[ 23168], 99.95th=[ 31104],
+     | 99.99th=[284672]
+   bw (  KiB/s): min= 7032, max= 7832, per=100.00%, avg=7534.00, stdev=221.90, samples=20
+   iops        : min= 1758, max= 1958, avg=1883.50, stdev=55.47, samples=20
+  lat (usec)   : 2=36.77%, 4=61.73%, 10=1.18%, 20=0.20%, 50=0.11%
+  lat (usec)   : 100=0.01%, 250=0.01%, 500=0.01%
+  lat (msec)   : 2=0.01%
+  cpu          : usr=0.66%, sys=3.76%, ctx=23520, majf=0, minf=9
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=18835,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=7532KiB/s (7713kB/s), 7532KiB/s-7532KiB/s (7713kB/s-7713kB/s), io=73.6MiB (77.1MB), run=10002-10002msec
+
+
+
+
+
+SMB Remote:
+
+--size=512M --numjobs=1 --directory=/smb-remote \
+--time_based --runtime=10 --group_reporting
+remote-smb: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=libaio, iodepth=1
+fio-3.39
+Starting 1 process
+remote-smb: Laying out IO file (1 file / 512MiB)
+Jobs: 1 (f=1): [r(1)][100.0%][r=6832KiB/s][r=1708 IOPS][eta 00m:00s]
+remote-smb: (groupid=0, jobs=1): err= 0: pid=11049: Thu Feb  5 09:41:06 2026
+  read: IOPS=1718, BW=6876KiB/s (7041kB/s)(67.2MiB/10001msec)
+    slat (usec): min=297, max=8647, avg=576.35, stdev=335.73
+    clat (nsec): min=1654, max=4100.6k, avg=2733.10, stdev=31298.36
+     lat (usec): min=299, max=8651, avg=579.09, stdev=337.28
+    clat percentiles (nsec):
+     |  1.00th=[  1704],  5.00th=[  1768], 10.00th=[  1800], 20.00th=[  1928],
+     | 30.00th=[  2064], 40.00th=[  2128], 50.00th=[  2224], 60.00th=[  2384],
+     | 70.00th=[  2896], 80.00th=[  3056], 90.00th=[  3184], 95.00th=[  3280],
+     | 99.00th=[  4832], 99.50th=[  7584], 99.90th=[ 16320], 99.95th=[ 19840],
+     | 99.99th=[171008]
+   bw (  KiB/s): min= 6512, max= 7432, per=100.00%, avg=6876.40, stdev=287.90, samples=20
+   iops        : min= 1628, max= 1858, avg=1719.10, stdev=71.98, samples=20
+  lat (usec)   : 2=25.16%, 4=73.35%, 10=1.23%, 20=0.22%, 50=0.03%
+  lat (usec)   : 250=0.01%
+  lat (msec)   : 10=0.01%
+  cpu          : usr=0.90%, sys=5.24%, ctx=17211, majf=0, minf=10
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=17191,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=6876KiB/s (7041kB/s), 6876KiB/s-6876KiB/s (7041kB/s-7041kB/s), io=67.2MiB (70.4MB), run=10001-10001msec
+

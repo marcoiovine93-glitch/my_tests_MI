@@ -104,6 +104,14 @@ Profiling with Nsys:
                         - THIS IS IMPORTANT BECAUSE IN THIS CASE, WITHOUT INCLUDING IT, WE HAVE THAT THE ONLY TIME MEASURED IS THE TIME NEEDED 
                           TO COPY DATA FROM CPU TO GPU?????
 
+- SWAPPING IN OPENACC:
+    - once you do the swap on the host, you don't need to do the swap on the device, because the relation between the host and device 
+      is still the same --> it is like pointing to a train or to another one: if you point to the forward part of it (the host of the other
+      variable), the relation between that part and the vanes(the device address) is still the same !!!!!!
+
+
+
+
 
 - REMEMBER!!!!!: In Python is not possible to perform Shared memory parallelism!!!
     - IT IS NOT POSSIBLE TO INTRODUCE THREADS!!!
@@ -3516,7 +3524,516 @@ DuplicateSignature: dkms:openafs-modules-dkms:1.8.10-2.1ubuntu3.4:/var/lib/dkms/
     - sudo modprobe openafs (this command loads the afs module) --> if gives error --> it means that the secure boot is enabled! 
         --> disable it (from the bios) and rerun the command
     - check openafs is active as a service: sudo systemctl status openafs-client
- 
+NOOOOOOOOOOOOOOOOOOOOO!!!!!!!!!!: THIS IS SO RISKY!!! 
+
+
+
+
+
+
+
+ADVANCED GPU COURSE:
+
+- COKA cluster access: ssh miovine@coka.fe.infn.it
+- Alessandro Gabbana
+- port the code to makeit run on GPU and optimize it with the hpc devices
+- performance enhance and how to do it
+- potential things to work on --> day after day increment performance and analyze --> final presentation
+- list of things to take into considerations
+- Outline
+    - exascale systems are based on GPU nowadays --> wasn't true 10 years ago
+    - more and more GPUs
+    - INTEL Xeon 5 : marconi cluster based on it!
+    - from single core oriented to parallel programming 
+    - a lot of ALUs to compute efficiently
+    - 2007: CUDA --> extention of c - c++
+        - cuda only for GPU
+- GPU: bandwidth is larger than CPUs tipically
+- architecture:
+    - many light cores
+    - smaller memory
+    - high BW to memory
+    - parallelizable
+    - CPU: I launch program on CPU and iI manage to synchronize with the GPU!!
+    - GPU: number of proc. elements order of 1000
+    - fraction dedicated to memory management more developed on CPU than GPU
+    - streaming multiprocessor for gpus are like cores for CPUs?
+    - GPU: much simpler structure
+    - programming model:
+        - CPU orchestrate kernel and launching --> allocate memory on the GPU
+        - transfer data to the GPU (bottleneck) (copy of data)
+        - kernel execution in parallel
+        - GPU threads: slow access to global and texture memory
+            - each threads has registers (faster) and local memory (slow)
+        - GPU as separate memory but Unified virtual address and UM (unified memory)
+        - Hide latency:
+            - we can have access directly from a GPU to another on the same node
+    - Flynn's Taxonomy:
+        - classification based on how instruction and data are combined
+            - SIMD: same instruction to multiple elements
+                - in one clock with vectorize execution
+                - GPU is similar to this except for the fact that we have different threads on different data and also branches inside
+                - SIMT: single instruction multiple threads
+                    - threads run in parallel on different pieces of data
+                    - single instruction
+                    - warp: 32 threads execute the same intruction on different data
+                    - threads in a warp can diverge if they meet cond. branches, but effect has been mitigated with last versions
+            - CPU: optimized for latency
+            - GPU: optimized for throughput --> we can pipeline at large scale
+                - we can have multiple streams, each one with multiple threads!!
+                - low per thread performance
+                - amount of memory is limited (handle transfer between CPU and GPU)
+                - Extension card??
+            - Nvidia developed its own CPU ARM based
+    - GPU approaches:
+        - Libraries
+        - Directives:
+            - OpenMP
+            - OpenACC --> pragma based languages
+                - copin (I copy before the execution)
+                - produces the code to be run on GPU
+            - Programming languages:
+                - CUDA
+                - OpenCL
+                - ROCm: equivalent of CUDA for AMD
+                - HIP
+            - CUDA programming model:
+                - extension of c language
+                - host: CPU
+                - device: GPU
+                - we need to take care of allocation of memory:
+                    - cudaMalloc(pointer_to_somth_living_on_GPU, size)
+                    - cudaFree(pointer_to_somth_living_on_GPU)
+                    - cudaMemcpy : copy from CPU to GPU!
+                    - cuda Kernel:
+                        - __global__ : qualifier specific for CUDA --> kernel will be exec. on GPU and called from the Host
+                        - __device__ : qualifier specif. function executed on the device and called within the device only (can be called inside
+                                       a kernel???)
+                        - __host__ : executable only on the host!!
+                        - we cannot combine __host__ and __device__, but we can combine them with __global__
+                        - mandatory parameters for kernels:
+                            - nthr: num. of threads per block
+                            - nblck: number of blocks???
+                            - Threads, blocks, grids
+                                - We count from left to right, and from bottom to top
+                            - Block and grid sized depend on the hardware
+                            - grid size:
+                                - not easy to define what is the right choice for block and grid size
+                         - EXAMPLE:
+                            - axpy.cu : axpy operation : a*x + y
+                            - .cu : openMP program done on CPU??
+                            - load Nvidia compiler:
+                                - nvcc
+                            - add the cuda_runtime.h header file
+                            - add the gpu axpy kernel, naming it gpu_axpy()
+                            - function similar to ualloc()
+                            - sm_XX : depends on the target GPU architecture!! We need to search it!!
+                            - launch the kernel: it is asynchronous
+                            - we are measuring just the overhead for launching the kernel
+                            - CUDA stream: 
+                                - cudaMemcpy: implies the synchronization --> so we need to do synchronization, to force it!!!
+                                    - it is important to get the actual execution time
+                                - different element in kernel will be devoted to computation for different chunks  of data!!
+                                - different threads can handle different part of my data?
+                            - We need to optimize memory access
+                                - we want that contiguous threads to access contiguous memory loactions!!
+                                - CPU: increase data locality
+                                - GPU: different approach --> 
+                                - in this way perf. ijncreased
+                                - but we can have more improvments: --> increasing the number of blocks!!!
+                                - we fix the number of threads and recompute the number of blocks
+                                - start defining a strategy to evaluating every time the code !!!!! 
+                                - for the moment we do it incrementally!
+                            - Error checking:
+                                - to understand where the problem comes from
+                                - cudaGetErrorString(...)
+                                - axpy program!!
+                        - EXAMINATION:
+                            - optimization:
+                                - loop unrolling
+                                - compiler fla
+                                - use of shared memory and tiling techniques
+                                - memory coaleshing and data layout
+                                - register usage optimization and occupancy tuning
+                                - asynchronous execution and overlapping data transfers with computation
+                            - small presentation (some slides, screenshots, parts of code)
+                                - the story of what we've been doing in the last 4 days
+                                - chritical thinks --> why things works or not?? --> analyze, try, understand!!!
+                            - possible Projects:
+                                - Lattice Boltzmann Method:
+                                    - Boltzmann equation on a grid layer --> restricted to small set of directions --> integrating things over a
+                                      stencil can ....
+                                    - it is extremely suitable for parallel architecture --> updates each point independently with respect to 
+                                      each other!!
+                                    - we apply collition operator!! 
+                                    - precollision to postcollision state!
+                                    - all the grid can be computed in parallel
+                                    - grid from which we read and grid from which we write
+                                    - we can visualize the solution --> allows dissipation --> vorices decay in time (how kinetic energy varies
+                                      with time)
+                                - 1D Fast Fourier Transform:
+                                    - compute in python after porting from c in order to verify the correctness of the result 
+                                    - cuFFT library
+                                - Jacobi Solver
+                                    - he wants also a Hybrid MPI - GPU approach, and also a mandatory comparison between OpenAcc...
+                                - Simplest ones: Game of life, Mandlebrot, Julia Set --> mandatory Hybrid MPI - GPU computing
+                                
+                       - Define the PROJECT which we want to work on!!!
+
+                       - HOW TO RUN JOB ON COKA??:
+                            - github Nvidia : the version is too new for Coka !! (the instructions don't work)
+                            - latest version on CUDA: 11.7 for COKA
+                            - we run with: ./
+                            - to run python code to check code: load anaconda3(whatever) !!!
+                            - download the release corresponding to the 11.8 version on Cuda
+                            - go into the folder untared --> make -j 8 --> after the compiling, go to the bin --> arrive to the executable
+                              --> run from a login node to get the result
+                            - BUT WE HAVE A COMPILING ERROR!!!:
+                                srun --partition=LONGRUN -N 1 gres=gpu
+                                (ask chat gpt how to run an interactive section on a gpunode)
+                                --> then we can do: ./devQuery??
+                                IF WE DO IT FROM A NOT LOGIN NODE, WE GET: 
+                                ./deviceQuery Starting...
+
+                                 CUDA Device Query (Runtime API) version (CUDART static linking)
+
+                                 cudaGetDeviceCount returned 100
+                                 -> no CUDA-capable device is detected
+                                 Result = FAIL
+                            - WE DON'T CARE ABOUT THE COMPILING ERROR BECAUSE THE BIN FOLDER WAS GENERATED
+                                - WE GO TO THE SUBDIRECTORY release
+                                - we at first check the list of nodes: sinfo -l
+                                - from the available partitions, we choose longrun, that we know it is GPU provided!!
+                                - we access to a login node to have an interactive session with slurm:
+                                
+                                srun --partition=longrun -N 1 --gres=gpu:1 --pty bash
+                                
+                                - we do it in the folder "release"
+                                - we run ./deviceQuery to get the informations about the GPU on the longrun partition
+                                - now we can do exit (to come back to the login node) --> this time we start an interactive session Slurm on the
+                                  partition Skyvolta:
+                                
+                                srun --partition=skyvolta -N 1 --gres=gpu:1 --pty bash
+                                
+                             - WE CAN REPEAT THE PROCEDURE ON LEONARDO!!
+                             - in the script of the p100, we need to change 0 with 2!!!!
+                                    - in EXPORT_......
+                             - we at fist run the P100 --> so the flag sm_XX will be equal to: sm_60 !!
+                                - after compiling --> we check what partition is needed checking the slurm script in the coka_script scripts
+                                - we see that we need to run with: skyvolta !
+                                - we login on the skyvolta node partition --> we run: ./axpy $((1024*1024*64))
+                             - K80 flag:
+                                - -gencode arch=compute_37,code=sum_37
+                             - RUNNING THE P100 WITH SYNCHRONIZE AND THREADS= 512, WE GET THAT THE GPU HAS INCREDIBLE PERFORMANCES
+                                - THIS HAPPENS BECAUSE THE FLAGS ARE NOT CORRECT FOR RUNNING THE CODE --> IT IS RUN THE V100 INSTEAD OF THE P100:
+                                - IT IS LIKE THE KERNEL IS NOT LAUNCHED AT ALL!!!
+                                
+                            - vpn.sissa.it/sso
+                            
+                            - SECOND DAY: Memory Architecture and optimization:
+                                - GPU consists of many streaming multiprocessors
+                                - minimal computing unit: thread
+                                - each thread block is mapped to a streaming multi processor (SM)
+                                - CUDA can execute several threads simultaneously
+                                - 32 consecutive elements form a warp
+                                - threads within the same block can be assumed to run concurrently
+                                - we can have many registers and many schedulers
+                                - SM divided in processing blocks
+                                - we want to access the global memory as little as possible
+                                - register (per threads) --> shared memory (per block) --> L1 cache (per SM) --> L2 cache (global) --> global mem
+                                  --> CPU host memory
+                                - Warps: 
+                                    - are distributed among the processing blocks
+                                    - GPU use SMT : single instruction multiple threads
+                                    - scheduler pick one of the thread warp for executing instruction
+                                        --> can happen every thread in a warp execute the same instruction
+                                        --> or some kind of branching or latency
+                                        --> for example : if --> some threads execute an instruction, other ex. other ones
+                                        - in gpus branching is fine (it is not like CPU) --> especially for modern GPUs
+                                        - the branch is better if occurs at block level, and not at warp level
+                                        - we are not talking about how we access the memory, but 
+                                        - tipically it is preferable that the number of elements in a block being multiple of 32??
+                                        - if a warp becomes idle --> it is like having a cache miss!!!
+                                        - WHAT IS THE RELATION BETWEEN : SM, BLOCK, WARP ????
+                                - Difference of branch divergence between warp level and block level:
+                                    - Between Warp (block level) --> no penalty
+                                    - Within Warp (warp level) --> latency ???
+                                - Hardware: 
+                                    - A100 and H100 are the most recent on Leonardo?
+                                    - in any case, if data doesn't fit in memory --> must process in chuncks
+                                    - latency: cost to initialize the transfer, the check in the memory and a lot of things
+                                    - we are happy when memory accesses are coalesced --> why and what are the implication?
+                                        - access patterns align with GPU hardware
+                                        - first check in the cache then down and down to the global memory ??
+                                        - GPU cache line : 128 Bytes
+                                        - COALESCING: 
+                                            - accesses are contiguous and aligned across warps
+                                            - minimizes memory access
+                                            - we assume each thread must access 4 bytes of data --> so for 1 warp (32 thread), we have 128 Bytes
+                                              (a cache line)
+                                                - there are many ways to exploit this
+                                                - worst case: the grey boundary values are the threads??
+                                                    - if we don't make access coalescing, we need to load an entire sector for each read???
+                                                    - why in the other worst scenario the penalty is negligible??
+                                                        - BECAUSE I HAVE STILL ONE TRANSACTION????
+                                                        - THREADS ACCESS THE SAME DATA!!!
+                                            - Threads in a warp should access contiguous addresses
+                                            - access sizes align to cache line boundaries
+                                            - avoid strided access
+                                            - SO THE LACK OF PERFORMANCE IS ESSENTIALLY LINKED TO THE NUMBER OF ACCESSES TO MEMORY AND TO CACHE
+                                              LINES!!!!
+                                        - SHARED MEMORY:
+                                            - we can use it to minimize the number of memory accesses to the global memory
+                                            - up to 2 order of magnitudes faster than the global one 
+                                            - bank conflict: same threads accessing the same bank??
+                                            - memory is divided into 32 memory banks???
+                                            - WHAT IS THE DIFFERENCE BETWEEN WARPS AND BANKS ????
+                                            - avoiding bank conflicts: Padding
+                                                - add padding and use stride 33 instead of 32 
+                                            - HOW to allocate shared memory:
+                                                - numBytesShMem
+                                        - AoS vs Soa:
+                                            - Structure of Arrays:
+                                            - AoS : poor cache locality
+                                            - we can combine it with shared memory
+                                            - in LBM we can switch from SOA to AOS giving a boost of performance!!!!!
+                                        - REGISTERS:
+                                            - 5 - 10 % impact on performances!!
+                                            - fastest memory
+                                            - we want to avoid register spilling
+                                            - the code is such that needs more registers than hardware limit
+                                            - how to avoid it??
+                                                - we can take action to avoid it happens!!
+                                        - constant memory:
+                                                - memory area where constants are stored
+                                                - can use it to store constant quantities 
+                                        - texture memory:
+                                            - the compiler will use it!
+                                        - Block-level sinchronization:
+                                            - __syncthreads() 
+                                            - Deadlock in CUDA????
+                                            - Atomic operations!!!
+                                                - AVOID USING IT!!
+                                        - Reduction:
+                                            - we apply operator to vector to reduce it!!!!
+                                            - we can do better????
+                                            - we can reduce within a block by using shared memory!!!
+                                            - we can optimize also for warp divergence and coalesced memory access!!
+                                                - no warp divergence
+                                                    - no serialization within warps
+                                                - coalesced memory access
+                                        - WHAT IS THE WARP SCHEDULER????
+                                        - WE CAN ESTIMATE OCCUPANCY!!
+                                        - active warps: threads_x_block*SM_number?? / 32
+                                        - I can use NVIDIA NSIGHT to estimate occupancy!!
+                                        - If the theoretical occupancy is higher than the measured one --> probably the memory access is not 
+                                          good!!!
+                                        - 2 example in slides
+                                            - implement kernels and try to optimize gradually it!!! 
+                                - 3RD LESSON:
+                                    - pinned (page-locked) host memory
+                                    - cuda streams
+                                    - cuda events
+                                    - cuda graphs
+                                    - integration with OpenACC
+                                        - Synchronicity and Von Neumann model
+                                            - traditional cpus assumes synchronous execution
+                                            - we want to introduce for example overlapping between computation and memory transfer
+                                            - blocking vs non-blocking calls:
+                                                - we need to synchronize explicitly the memory to wait the host before doing the 
+                                                  next calculation
+                                        - CUDA streams:
+                                            - queue of GPU operations exec. in a certain order
+                                            - within a stream op. are serialized
+                                            - Default stream: NULL stream --> synchronizes with all user streams
+                                                - blocks all user streams
+                                                - user streams can run concurrently with default stream
+                                            - creating streams:
+                                                - create streams
+                                                - we specify that the kernel must run on a certain stream
+                                                - D2H : device to host
+                                                - we can direct a stream to a GPU and another to another GPU
+                                                - so we will get asynchronous Data transfers
+                                                - how host data is alocated??
+                                                    - it is pageable:
+                                                        - we want that device moves the data asynchronously --> so this approach is not good
+                                                        - CPU cannot DMA from pageable memory
+                                                        - GPU must instantiate an intermidiate buffer?? (2 transfers)
+                                                        - How to solve this problem?
+                                                            --> PINNED MEMORY! : - no CPU intervention
+                                                                                 - GPU does a direct DMA
+                                                        - why I don't pin all the memory??
+                                                            - BECAUSE WE HAVE A MEMORY LIMIT!!!
+                                                - we can have 2 concurrent streams for example
+                                                - IN OUR PROJECT: MAYBE WE COULD APPLY IT TO THE PRINTING PART INSIDE THE ITERATION LOOP!!
+                                                - if we have 2 streams, the time when they will be executed depends on the scheduler
+                                                - example: cuBLAS with Streams (libraries) 
+                                         - CUDA events:
+                                            - synchronization marker in a stream:
+                                                - creating dependencies
+                                                - measure the time of exec. of a kernel without the need of a synchronization with host
+                                                    - a kernel to intialize and one to stop
+                                                - inter stream synchronization
+                                         - CUDA Graphs:
+                                            - snapshot of GPU work
+                                       - CUDA Graphs:
+                                        - snapshot of GPU work
+                                        - good for latency? When we use them?? 
+                                        - graph node is an asynchronous cuda operation
+                                        - we can introduce dependencies between the nodes 
+                                       - OpenACC and Streams:
+                                            - we can integrate it with CUDA!!! 
+                                            - we can apply it asynchronously!!!! 
+                                            - async data transfers
+                                       - We want to achieve a pipelined approach!!!
+                                            - maximum overlap!!!!
+                                       - Async everything: WHY????
+                                       - overlapping communication and computation (when we have MPI!!!)
+                                            - ghost nodes to store temporary stuffs!!!
+                                            - MPI CUDA aware implementation
+                                            - to check the performance: NVIDIA profiler !!!!
+                                       - How can we debug Streams and Events????
+                                            - 
+                                - OpenMP:
+                                    - directive based 
+                                    - to offload the GPU computation
+                                    - same code for CPU and GPU
+                                    - less porting effort 
+                                    - p100 and v100 are not supported by the latest version of OpenMP!!! --> we need to add the proper flag
+                                      depending on the compiler!!
+                                    - Diff. with OpenACC:
+                                        - how we define the region: with "target" --> will specify a region executed on GPU
+                                        - if we don't add additional constructs, we will have a single thread executing
+                                        - the physical mapping depends on the compiler
+                                        - we have threads per team????
+                                        - I need to create teams and for each team a certain number of threads!!!
+                                        - distribute: it distributes the loop iterations to thethreads!!!
+                                        - there is a difference between Teams and Parallel !!!
+                                        - from OpenMP 5.0 :
+                                            - from extended pragma directive to a more compat one!!!!
+                                    - IT IS REALLY IMPORTANT TO CHECK WHAT THE COMPILER IS ACTUALLY DOING!! (TO HAVE THE CONTROL ON IT!!!)
+                                        - by adding the flag: -Minfo !!!!!
+                                    - Data Mapping:
+                                        - handle data movement between host and device
+                                        - data map construct that allows to set how data should be handled in different regions of the code
+                                    - target regions can be dependent or indipendent!! 
+                                    - we can handle data also outside the data region (unstructured data regions)
+                                    - we can also make use of the shared memory!!!
+                                    - default: all the call to the kernels are blocking
+                                        - asynchronous execution:
+                                            - we need a nowait
+                                    - we can define openMP tasks that will be executed concurrently!!
+                                        - depend keyword
+                                    - we can integrate with MPI!!!     
+                                    
+
+
+- PROJECT (LATTICE BOLTZMANN):
+    - error: there is a missing ) in the file : it is due to the fact that the NX and NY variables are aleady defineed at the top of the file!!!!
+    - the same happened also for the variable Q!!
+    - we cannot call the kernels in the same way of c or c++ functions: we need to specify the threads configuration with: <<,>>
+    - ATTENTION!!!!: ALSO THE grid array must be copied into the Device, because it is at the beginning of the process initialized with a proper
+      function!!!
+    - WE NEED TO CORRECT THE CALCULATION OF FLOATING POINT OPERATIONS AND AS WELL THE NUMBER OF INPUT-OUTPUT ACCESSES!!!!!                        
+        - OTHERWISE THE ESTIMATION OF PERFORMANCES IS NOT CORRECT!!!
+    - ATTENTION!!!:
+        - When we call a kernel in CUDA, and we pass the parameters in "<<< >>>", we are passing the first as the number of blocks,
+          and the second one as the number of threads per block : remember that this represents the logical thread topology and doesn't
+          necessarily correspond to the data layout -->> and, more important, it doesn't correspond to the hardware configuration (rememeber the
+          banks issue for Shared Memory!!)
+    - IN OUR PROJECT AT FIRST WE DIDN'T INTRODUCED ANY BLOCK OR THREAD TOPOLOGY, SO WHAT HAPPENS IS THAT EACH THREADS EXECUTE THE ENTIRE 
+      FOR LOOPS AND EACH THREADS ACCESS THE SAME MEMORY ADDRESS IN THE LOADED CACHE LINE FOR A SINGLE CACHE LINE TRANSACTION!!!
+    - SO WHAT WE DO NOW IS TO INTRODUCE A COALESCED MEMORY ACCESS!!!
+        - in particular in the stream and collision kernels !!!
+        - but the coalesced or not coalesced access seems very linked to the difference between SOA and AOS
+    - AFTER ALMOST A CENTURY, WE CAN MOVE TO THE COALESCED MEMORY ACCESS VERSION!!!:
+    - NOW WE WANT TO INTRODUCE THE SoA paradigm:
+        - this doesn't mean that we have a struct with an array inside and that we need to refer to the array with the dot notation as we do now
+        - it means that the variables defined in the struct are directly accessible through pointers, without the need to load the entire
+          struct instance !!!
+        - so we define the variable inside the struct as a pointer
+        - then what we do is to d
+        - ATTENTIION!!! : IN C WE CANNOT CALL A FUNCTION INSIDE THE STRUCT DEFINITION!! --> WE NEED TO ALLOCATE ON THE HEAP WHEN WE INTIALIZE!!!
+        - ATTENTION!!!!!!: at first we wanted to modify the struct on the host by introducing the static array as a pointer (array) in order
+          to handle the allocation of of an array of NX*NY elements for each fi !!!
+            - so we did a copy from the host to the device of the new defined grid --> since we pass from array of structs to struct of pointers,
+              we defined the grid as a simple struct object with inside the arrays corresponding to each fi in every grid point
+            - Unfortunately, it is not possible to copy a struct instance to the device and pretend that the GPU (the device) can manage
+              them : this is totally wrong!!!
+            - so we need to copy each f, as member of the struct instance, as an array of doubles of dimension NX*NY!!!
+            - ATTENTION!!: WE NEED TO TAKE CARE PROPERLY OF THE DEALLOCATION!!!
+            - ATTENTION!! PROBABLY THE SWAP MUST BE DONE JUST BETWEEN THE POINTERS MEMBER OF THE struct!!!
+            - WE CREATED A NEW VERSION WITH THE init and Kinetic energy functions called by reference, BUT IT SEEMS SLOWER THAN THE 
+              PREVIOUS ONE!!!
+        - ATTENTION!!!:
+            - WE CAN TAKE THE TIMES IN A BETTER WAY BY INTRODUCING THE TIMINGS BEFORE AND AFTER THE 2 CALLS TO THE KERNELS AND THEN ADD A 
+              BARRIER TO MAKE SURE THE SYNCHRONIZATION IS CORRECT!!!!
+        - ATTENTION!!!:
+            - When I apply the SOA: 
+                - The call to the kernels, must be done in such a way that the d_grid is passed by value, not by reference --> why?
+                - We pass by value because d_grid and d_grid_new in this case are defined on the host --> but the pointers inside them
+                  are obtained by copying from Host to Device 
+                - So, if we make the code to do a copy of the struct instances, then it will be able to dereferntiate the pointers to GPU 
+                  locations
+                - If we pass by reference, we pass a Pointer to the Host to the GPU --> so it will not work!!!
+           - For constant memory access:
+                - the __const__ qualifier must be added to the gpu arrays, not to the Host ones, because the __constant__ variables
+                  are physically allocated on a specific location in a special memory on the GPU!!!
+                - REMEMBER: the __constant__ variables must live in the global scope, not in a host function scope (like main, for example)
+                - ATTENTION!!!: WE CANNOT CALL ANYMORE THE collision and streming kernels passing the dex, dey and dw as arguments!!!
+                  they are globally defined, so by explicitly passing them, we pass undefined arrays!!
+                  - WE NEED TO REMOVE THE ARRAYS ALSO FROM THE KERNEL SIGNATURES AND FROM THE CUDA FREE LINES!!
+           - we could make a comparison between block size 32*32 and 16*16!!
+           - ATTENTION!!!: THERE IS A HUGE DIFFERENCE BETWEEN THE THREADS IN CPU AND GPU!!!
+                - ON GPU, THE THREADS ARE UNIT OF EXECUTION!!!!!!!!!
+           - WARNING!!!!:
+                - WE SET THE NUMBER OF THREADS SO THAT EACH GRID POINT CORRESPONDS TO A THREAD!!!! 
+                  --> THIS IS WHY WE HAVE 
+                  NUM. OF BLOCK = grid_total_number_nodes/threads_per_block
+                - BUT YOU NEED TO KEEP IN MIND THAT IT'S NOT A RULE, WE COULD ASSIGN TO A THREAD MORE ELEMENTS
+           - SHARED MEMORY:
+                - WE DEFINE THE DOMAIN AS MADE OF TILES!!!! --> EACH TILE SHARES MEMORY!!!
+           - WE COULD PROBABLY MOVE THE FOR LOOP ON THE fi COMPONENTS OUTSIDE AND THE DOMAIN FOR LOOP INSIDE!!!
+        - ATTENTION!!!
+            - Our first implementation of the kernels is not with memory coalesced --> on the other hand, after applying SOA, we have 
+              memory coalesced!!!
+            - ReCALL THE CUDA STREAMS!!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

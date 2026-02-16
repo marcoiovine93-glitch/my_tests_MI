@@ -1,0 +1,31 @@
+root@ip-172-31-92-128:~# zpool status
+  pool: tank1
+ state: ONLINE
+config:
+
+	NAME        STATE     READ WRITE CKSUM
+	tank1       ONLINE       0     0     0
+	  raidz1-0  ONLINE       0     0     0
+	    xvdb1   ONLINE       0     0     0
+	    xvdc1   ONLINE       0     0     0
+	    xvdd1   ONLINE       0     0     0
+
+errors: No known data errors
+
+  pool: tank2
+ state: ONLINE
+config:
+
+	NAME        STATE     READ WRITE CKSUM
+	tank2       ONLINE       0     0     0
+	  raidz1-0  ONLINE       0     0     0
+	    xvdb2   ONLINE       0     0     0
+	    xvdc2   ONLINE       0     0     0
+	    xvdd2   ONLINE       0     0     0
+	logs	
+	  mirror-1  ONLINE       0     0     0
+	    xvde1   ONLINE       0     0     0
+	    xvde2   ONLINE       0     0     0
+
+errors: No known data errors
+
