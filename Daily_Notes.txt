@@ -4004,11 +4004,266 @@ ADVANCED GPU COURSE:
 
 
 
-
-
-
-
-
+- CLOUD COMPUTING COURSE :
+    - instruments to make cloud be deployed and used
+    - this year: focus on how to use cloud like a platform to deploy hpc application
+    - deploy slurm cluster in different virtual environment
+    - we will study how to use uptainers and singularity
+    - cloud account --> easier than a phys cluster 
+    - access easily to resources
+    - elastic, instant provisioning, service-oriented architecture
+    - cluster designed to be homogeneous (all nodes have the same resources)
+        - on cloud we don't have these constraints!!
+    - UNDERSTAND WHY SYSTEM BEHAVE IN A CERTAIN WAY
+    - HOW TO DEBUG FAILURES
+    - WHEN CHOOSE WHICH TRADE-OFF
+    - TOPICS:
+        - Docker
+        - Kubernets
+        - AwS
+        - Apptainer with MPI
+        - Lambda and Step function
+    - DISTRIBUTED:
+        - ORCHESTRATED:
+            - orchestrate different kind of resources
+        - Cloud (AWS)
+        - HPC Integration (SLURM, Apptainer)
+    - Final exam:
+        - presentation : comparison ?? --> also on exercises in the lab !!!
+    - book: Klepmann
+    - CLOUD FOUNDATIONS AND DISTRIBUTED SYSTEMS:
+        - cloud: distributed system
+        - problems that we need to face
+        - why cloud comp. exists?
+            - is not comp. over internet
+            - envronment answers questions raising market ---> elastic computing resources (when needed)
+            - mainly for addressing needs of companies
+            - science: later --> because in science we have our own resources
+            - company --> need of experts to take care of systems -> costs --> we want simplified systems!!
+            - we need just to pay --> not needed to install anything
+        - Mainframe era: 
+            - centralized comp. (and software installation)
+            - multiple shared same resources
+            - batch processing and job queues --> Batch !!
+            - time sharing: ---> multiple users share the same resources
+        - Personal computing: 
+            - each one with its own resources
+            - local software installation
+            - maintenance hold by the user!!
+        - Cluster computing:
+            - multiple commodity machines
+            - high local network speed interconnect
+            - horizontal scaling --> I can add resources!!!
+            - is not only parallel computing!!
+            - higher availablity --> resources shared to answer a specific question --> it is not necessarily parallel computing!!
+            - not only HPC
+        - Grid computing:
+            - geographically distributed 
+            - multiple organizations sharing
+            - but: complex middleware, unreliable resource availability
+            - linked just to scientific context
+            - not easy to maintain
+        - Utility computing:
+            - theoretical model
+        - Cloud:
+            - evolution:
+                - get the experience of what happened before:
+                - resource pooling (Mainframes)
+                - horizontal scaling (Clusters)
+                - virtualization (Grids)
+                - pay-per-use (Utility)
+                - Internet -> self service APIs, global access
+        - DISTRIBUTED SYSTEMS FUNDAMENTALS:
+            - collection of autonomous comput. systems --> appears as a single coherent system!! 
+            - concurrency: components executed simultaneously
+            - No global clock --> cannot perfectly synchronized time
+            - Independant failures
+            - Fallacies:
+                - network not reliable --> NO!! : network fails
+                - latency is zero --> NO!! : every call takes time
+                - bandwidth is infinite --> NO!! : data transfer have limit and costs
+                - network is secure --> NO!! : absolutely not --> there is always risk !!
+                - topology doesn't change --> NO!! : nodes come and go
+                - one adimintrator --> NO!! : multiple teams
+                - transport cost is zero --> NO!! : bandwidth has costs!
+                - network is homogeneous --> different versions and protocols
+            - WE need to take into account the fallacies!!
+            - SO WHY WE USE COULD IF WE HAVE ALL THESE FALLACIES??
+                - we have a lot of benefits:
+                    - scalability --> easy to do
+                    - CUSTOMIZABLE EVIRONMENT 
+                    - customable for the client, based on what I need!!
+            - CAP Theorem:
+                - 3 properties: consistency(refuse requests rather than return stalled data), availability (serve data even if data might be stale),                  Partition tolerance
+                - we cannot have availablity and consistency at the same time!!!
+                - we need to choose based on the system!!
+                - EXAMPLE: amazon cares about availability for example!
+                - for banking transfers: we choose consistency!!
+                - consistency can be in different ways!!!
+                    - strong or eventual!!
+                    - STRONG: linearizability --> after a write completes, all subsequent reads return that value
+                    - EVENTUAL: if no updates are made, all reads will return the same value --> the update on a node propagates to all the others
+                    - related to consensus and coordination:
+                        - consensus algorithms:
+                            - Paxos and Raft
+                            - Raft: distributed systems (every node with same resources --> to not have a single point of failures)
+                                - every time the system elects a leader --> all the clients know ---> modification happens in asynchronous way
+                                - the leader knows about it
+                                - the majority principle is applied (when we have the half nodes + 1, what happens??)
+                - Fault tolerance:
+                        - redundancy strategies
+                        - Cloud provider redundancy levels:
+                            - availability zone
+                            - region
+                            - multi-region
+                - Users can use cloud computing from different locations
+                - Cloud: from capital to renting stuffs!!
+                    - can be more expensive sometimes
+                    - sometimes is not the answer to our problems!!
+            
+            - CLOUD COMPUTING:
+                - cloud economics: what are the costs
+                - is not just virtualiz., hosting --> more: model for enabling ubiquitous, convenient, on demand network access to a shared pool
+                  of configurable computing resources PROVISIONED WITH MINIMUM EFFORT!!
+                - Characteristics:
+                    - on demand self-service
+                    - broad network access (we can use APIs, HTTPs, SSH)
+                    - resource pooling (provider's resources are pooled to serve multiple consumers using a multi tenant model
+                        - RECALL THE DIFFERENCE BETWEEN VERTICAL AND HORIZONTAL SCALING !!!
+                    - Measured service:
+                        - everything resource usage in the cloud is monitored and reported
+                    - Rapid elasticity : scale up/down and horizontally
+                - Service models:
+                    - SaaS: gmail, salesforce, Office 365: provider offers everything, included the application!!!
+                            an example is also google drive!!
+                    - Paas: provider manages also the runtime environments --> automaticly scales up and down
+                            we deploy code on the platform
+                            - we want to focus on the deployment of code!!!
+                    - Iaas: ask a cloud provider to give an architecture (machines, network, storage): they are virtual, we need to install
+                            customize, manage --> it is the approach more similar to data center
+                            - the provider manages the hardware, storage, networking --> but the OS, application, middleware.. are up to user!!
+                    - Function as a service:
+                    - Public cloud:
+                        - renting is monthly based
+                    - Private cloud:
+                        - limit scaling
+                    - Hybrid cloud:
+                        - reason: private: cannot sell as infinite capabilities resources
+                        - compose public with private --> the requests not handable by the private sent to the public one
+                        - multi-cloud: services from multiple public providers
+                            - because every service has some tool better than the other services!!
+                            - AWS+Azure for example
+                            - we need to transfer data from one service to another!!
+                        - IaaS : in AWS is E2C
+                 - Cloud economics:
+                    - CapEx --> OpEx 
+                    - on demand : pay for hour of use
+                    - reserved
+                    - spot/preemptible : good if I know resources are not needed for a long period of time??
+                        - good for batch jobs
+                        - good for big data
+                        - not good for databases
+                        - not good for long-running jobs
+                        - high risk
+                    - savings plans
+                 - TCO : Total Cost of Ownership:
+                    - On-Premise: costs not reltaed just on hardware --> also power and cooling, IT staff, Mantainance, software licenses
+                    - Cloud costs:
+                        - storage, network, managed services, Availability zone traffic (AZ traffic)
+                        - idle resources : forgotten 
+                        - over-provisioning
+                 - Big 2 cloud providers:
+                    - AWS
+                    - Azure
+                    - GCP
+                 - Object storage:
+                    - we don't need to think so much --> it's a sort of metadata
+                    - Ceph is an example!!!!
+                 - Service Name Comparison: ????
+                 - What is POSIX (way to read a file)
+                
+             - Virtualization:
+                - why?: cloud would not exist without it
+                - it is the enabling technology for cloud computing
+                    - not only solves resource efficient problem --> but sumplify life of system admin
+                    - we can have resources when we need it
+                    - can install more VMs per Server
+                    - 60-80% utilization
+                    - better resource efficiency
+                    - fewer physical servers needed
+                    - what is it??:
+                        - creates abstraction layer between physical hardware and software running on it
+                        - ILLUSION OF DEDICATED HARDWARE
+                        - The Linux OS is essentially the Linux Kernel --> Linux distributions provide different packages and libraries
+                        - tested in the past!
+                    - Hypervisor Architectures:
+                        - Host: physical machine running the hypervisor
+                        - Guest: VM running on the host
+                   
+                    - Hypervisor(VMM): is creating the VMs and it is a software layer!!
+                        - it is mantaining interface between the physical memory and the virtual one??
+                        - Hypervisor is multiplexing data so that every VM has access to it?
+                        - map guest memory to host memory!
+                        - Type 1:
+                            - Bare-Meal Hypervisor
+                            - direct HW access
+                        - Type2: hosted Hypervisor
+                            - installed on top of the OS
+                        - comparison:
+                    - KVM: turns Linux into a Type 1 hypervisor (Hybrid approach)
+                        - all the schedulting, driver access et cetera, is mediated by Linux itself
+                    - CPU virtualization:
+                        - one of things Hypervisor does
+                        - each CPU is made in a way that avoids user applications access the hardware
+                        - protection rings: priviledged ring organizations
+                        - VMware --> Binary translation : 
+                            - the hypervisor run on ring 0, but the virtualized OS is running on ring 1
+                                - every time we have a communication ... we have binary translation to ring 0 --> it works, but high overhead!!
+                            - solution 2: Paravirtualization
+                                - priviledged operations replaced with hypercalls
+                            - solution 3:
+                                - HW-Assisted (Vt-x/AMD-V)
+                                    - 2 protection rings: one for hyper advisor and one for guest
+                                - when we need to virtualize something, we need to emulate processor and communicate with physical one through
+                                  the hypervisor --> this introduces a lot of latency!!!
+                     - Memory Virtualization:
+                        - application requires that is reserved and being part of the memory
+                        - solution 1:
+                            - shadow page tables : sofware based approach
+                     - Device Virtualization: (it is related to I/O!!!)
+                        - hard: WHY??
+                        - I/O is the biggest performance bottleneck
+                        - Approach 1: 
+                        - Approach 2: paravirtualization
+                        - Approach 3: Device Passthrough --> native (faster), fast access to resources like GPUs, for example
+                        - Approach 4: SR-IOV --> shows more virtual physical ports --> more VM can attach to the Phys device
+                                - Hypervisor is splitting the device in more than one!
+                     - Storage virtualization:
+                        - Virtual disk formats: we can see disks as files 
+                                - thin provisioning: 
+                                    - allocate storage on-demand, not upfront
+                     - Network virtualization layers
+                        - every VM has a virtual hardware with its own MAC address attached to a virtual switch 
+                        - Virtual Switches
+                     - LIve Migration:
+                        - move a running VM to another host with minimal downtime
+                        - use cases: load balancing, hardware maintenance, power maintanance, ....
+                     - Performance considerations:
+                        - Sources of Virtualization Overhead 
+                        - HPL: High performance linpack
+                     - Virtualization for HPC:
+                        - performance test:
+                            - how can we optimize: 
+                                - cache 
+                                - core binding
+                                - sometimes is better to use multiple device access
+                                - VM is like an application
+                                - on the cloud is not important the affinity or NUMA awareness (in general --> for HPC we care)
+                                - virtualization is not emulation
+                     
+                     - eXERcise:
+                        - we can install Virtual Box from the site
+                        -  
 
 
 
