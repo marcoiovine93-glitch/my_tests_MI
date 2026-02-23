@@ -4261,9 +4261,281 @@ ADVANCED GPU COURSE:
                                 - on the cloud is not important the affinity or NUMA awareness (in general --> for HPC we care)
                                 - virtualization is not emulation
                      
-                     - eXERcise:
+                     - eXERcise 1:
                         - we can install Virtual Box from the site
-                        -  
+                        - Download the .amd file ISO !!!!
+                        - we select "Proceed with Unattanded installation
+                        - username: cluster01
+                        - password: mhpc2026
+                        - we changed the Display memory to 128 MB and we checked the 3d accelerator!!
+                        - Network: disable : "Enable network adapter" 
+                        - we changed the RAM from 1 giga to 2 giga during installation
+                        - we removed the folders in : ~/VirtualBox !!!
+                        - password: user01
+                            - after installing the template, we can clone the master and the nodes??
+                            - after the installation, set the ram to 1 gigaB again!
+                            - we add network adapter for all the VM corresponding to the nodes!!
+                            - Now we need to configure ssh!!:
+                                - we do a port forwarding on the master and on the node!!! --> the difference between the 2 is just the port!!
+                                - THERE IS A PROBLEM --> THE PORT FORWARDING IS DONE ON MASTER AND ON NODES
+                                - IT IS INCLUDED TO LET THE MASTER AND COMP. NODES TO BE ACCESSED FROM THE HOST MACHINE!!
+                                    - THE HOST MACHINE IS THE LAPTOP!!!
+                                    - IN THIS WAY WE CAN ACCESS VIRTUAL MACHINES THROUGH SSH DIRECTLY!!!
+                                    - BUT TO MAKE SSH WORK, WE NEEDED TO AT FIRST INSTALL SSH PROVIDER ON THE NODES FOR WHICH WE CREATED 
+                                      THE VMs !!!:
+                                      - sudo apt update && sudo apt install openssh-server -y
+                                      - sudo systemctl start ssh
+                                      - sudo systemctl enable ssh
+                                      - we do this for all the nodes!!
+                                      - once we did this, we will be able to do:
+                                        - ssh -p 3022 user01@127.0.0.1 and ssh -p 4022 user01@127.0.0.1
+                                      - WE COPY THE KEY ON THE HOST TO THE VIRTUAL NODES AND WE ADDED THEM TO THE AUTHORIZED KEYS IN THE 
+                                        FILE "AUTHORIZED_KEYS" IN THE FOLDER .ssh !!
+                                      - in this way, we will not need to include the password when accessing the VMs !!
+                                      - we implement the configuration for the DHCP and the DNS!!
+                                        - but we see this:
+                                        host node01
+                                        node01 has address 192.168.56.2
+                                        Host node01 not found: 2(SERVFAIL)
+                                        - it's normal --> when we will modify the nodes, we will see the correct response to the command!!
+                                        - so we continue with the distributed system on the master node!!!
+                                            - so we install a NFS server!!
+                                            - we created some subdirectories of the /shared folder to be shared through NFS!!
+                                        - NOW WE CONFIGURE THE COMPUTING NODES!!
+                                            - also in here we edit the netplan file:
+                                                - we define the ports
+                                                - (IS REALLY SIMILAR TO WHAT WE SAW FOR THE MASTER NODE!!!
+                                                - DNS: 
+                                                    - also for the nodes we unlink the file resolv.conf
+                                                    - we modify the file to define the server
+                                                    - we reboot the machine --> we verify by running: hostname -I
+                                        - SO now we can access the compute node from the master by the use of ssh protocol!!
+                                        - we set passwordless access (from the master to the comp. node) !!!
+                                        - we do it by generating a key pair on the master node:
+                                            - ssh-keygen -t rsa -b 4096
+                                            - then we copy it on the comp. node: ssh-copy-id user01@node07
+                                        - We set the Shared file system (on the compute node) :
+                                            - BUT WE HAD AN ISSUE:
+                                                - it was impossible to install nfs: 
+                                                    - sudo apt install nfs-common -y
+                                                - ISSUE RELATED TO THE NETWORK NOT AVAILABLE FOR THE COMP. NODE!! 
+                                                - sudo rm /etc/resolv.conf
+                                                - THEN: echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+                                                - sudo apt update && sudo apt install nfs-common -y
+                                                - echo "127.0.0.1 node07" | sudo tee -a /etc/hosts
+                                                - THEN we MOUNT: sudo mount 192.168.56.1:/shared /sharedi
+                                                - ISSUE:
+                                                user01@node07:~$ sudo mount 192.168.56.1:/shared  /shared
+                                                [sudo] password for user01:
+                                                mount.nfs: access denied by server while mounting 192.168.56.1:/shared
+                                                - THE ISSUE WAS CAUSED BY THE ABSENCE OF THE LINES IN THE FILE: /etc/exports
+                                                - THEN WE NEED TO MOUNT THE SHARED FOLDER ON THE COMPUTING NODE:
+                                                  sudo mount 192.168.56.1:/shared  /shared
+                                                - then we can create a file --> will be visible also on the master node!
+                                                - we unmount
+                                                - WE CAN CONFIGURE AUTOFS TO AUTOMATICALLY MOUNT!!
+                                                    - we installed it by running the same commands seen above!!
+                                                    - we configure autofs!!!
+                                         - LOAD BAlaNCING SERVICE: 
+                                            - we configure nginx as our load balancing service!!!
+                                            - we create a new configuration file for nginx
+                                         - We configure the Node Template :
+                                            - ASK THE PROFESSOR ON WHICH NODES WE SHOULD RUN THE TEST OF THE LOAD BALANCING!!
+                                         - ERROR!!!!!! :
+                                            - THE NODES THAT MUST BE CONFIGURED ARE THE COMPUTE NODES!!! NOT THE TEMPLATE NODE!!!
+                                            - BECAUSE THE NGINX LET TO SPREAD THE REQUESTS AMONG THE COMPUTE NODES!!
+                                            - SO IT IS USED FOR LOAD BALANCE !!!!
+                                         - WE HAD AN ISSUE:
+                                            - WE WEREN'T ABLE TO TURN ON THE VIRTUAL MACHINES PROPERLY!!
+                                                - INSTEAD OF OPENING VIRTUAL BOX AND THEN THE SINGLE VMs, JUST 
+                                                  GO INSIDE THE FOLDERS AND OPEN DIRECTLY THE CORRESPONDING FILES!!!
+
+
+
+
+
+                        - VM:
+                            - I can do snapshot: --> I can go back to the snapshots
+                            - useful for complex systems
+                      - CONTAINERS:
+                        - we need to configure manually also with virtualization!!!
+                        - scalability 
+                        - but we need to do a lot of work manually
+                        - BUT WITH CONTAINERS???:
+                            - solve dependency
+                            - environment efficiency
+                            - resource efficiency: share OS Kernel
+                        
+                      - EXERCISE 2 : CONTAINERS!!!!
+                        - WHERE I CAN FIND THE TUTORIALS
+                        - GO TO: 
+                            - SLURM : the docker_compose.yml FILE IS RELATED TO THE OTHER 2 FOLDERS INSIDE THE SLURM DIRECTORY!!!
+                            - Tutorial:
+                                - Containers --> examples --> Compose.md !!!
+                            - WE installed Docker and we run Docker-Compose with the command: 
+                              docker-compose up -d
+                            - WE HAD ISSUE WITH THE MUNGE KEY!!!
+                                - WE HAD TO MODIFY THE PERMISSIONS FOR THE MUNGE KEYS FOR BOTH WORKERS NODES AND MASTER NODE
+                                - WE NEEDED TO MODIFY THE FILE: docker-compose.yml 
+                                    - WE ADDED THE LINE: - ./slurm-master/munge.key:/etc/munge/munge.key for each node
+                                        - because otherwise, even turning down the containers and reactivating it, the previous 
+                                          configuration will be seen!!!
+                                        - WE NEEDED TO CHANGE THE PATHS FROM THE ORIGINAL ONES TO THE LOCAL HOST ONES!!!! (FOR ALL THE NODES!)
+                                        - we needed also to modify the permissions to the munge keys and as well the 
+                                          Owner, that needs to be the UID user!!!
+                                            - sudo chown 101:101 slurm-master/munge.key
+                                            - sudo chown 101:101 slurm-node/munge.key
+
+# 3. Ensure permissions stay strict
+sudo chmod 400 slurm-master/munge.key slurm-node/munge.key
+                                    - now we have:
+                                    5:07 $ sudo docker-compose ps
+NAME                    IMAGE                 COMMAND                  SERVICE         CREATED         STATUS         PORTS
+slurm-slurm-master-1    slurm-master:latest   "/usr/local/bin/entr…"   slurm-master    6 minutes ago   Up 6 minutes   0.0.0.0:6817->6817/tcp, [::]:6817->6817/tcp, 0.0.0.0:2022->22/tcp, [::]:2022->22/tcp
+slurm-slurm-worker1-1   slurm-worker:latest   "/usr/local/bin/work…"   slurm-worker1   6 minutes ago   Up 6 minutes   22/tcp, 6818/tcp
+slurm-slurm-worker2-1   slurm-worker:latest   "/usr/local/bin/work…"   slurm-worker2   6 minutes ago   Up 6 minutes   22/tcp, 6818/tcp
+
+                               - THE NODES WERE NOT IDLE, SO WE NEEDED TO RUN: 
+                               sudo docker exec -it slurm-slurm-master-1 scontrol update nodename=slurm-worker[1-2] state=DOWN reason="manual reset"
+                               - COMMANDS: 
+                                    - sudo docker-compose down --> sudo docker-compose up -d --> sudo docker-compose ps
+
+                       - EXERCISE 3:
+                            - AT FIRST, WE TAKE A CODE RUNNING ON SERIAL OR ON GPU (NO MPI)
+                            - WE NEED TO MAKE IT RUN ON LEONARDO WITH APPTAINER!!!
+                            - THEN WE NEED TO MAKE A CODE WITH MPI TO RUN WITH APPTAINER
+                            - WE INSTALL APPTAINER LOCALLY
+                                - ENV DEBIAN_FRONTEND=noninteractive --> FUNDAMENTAL BECAUSE Docker build is automated, so there is no one 
+                                  to insert commands!!
+                                - ATTENTION!!
+                                    - WE WILL FOLLOW THE PROCEDURE:
+                                        - WE CREATE A Dockerfile (LOCALLY)
+                                            - ATTENTION!!:
+                                                - IN THE FILE we don't add commands that are related to the specific host machine,
+                                                - we just insert the compiling commands --> not linked strictly to the physical harwdware provided!
+                                                - we create a .tar corresponding to the actual Docker snapshot:
+                                                docker save --platform amd64 0cc1665930da -o gcc.tar --> it is not needed to specify the Docker
+                                                file because we are saving a snapshot actually --> it should automatically take it!!
+                                                - WE BUILD THE DOCKER IMAGE FOR THE CPU VERSION:
+                                                    - sudo docker build --platform linux/amd64 -t lbm-cpu:latest -f Dockerfile_cpu .
+                                                     (the -f flag indicates to refer to a specifi file --> Dockerfile_cpu !!)
+                                                    - we save the docker file to a gcc.tar file!!!!:
+                                                        sudo docker save --platform linux/amd64 -o gcc.tar lbm-cpu:latest
+                                                    - we copy the .tar to Leonardo:
+                                                    - before copying we needed to do
+                                                        - sudo chown $USER:$USER *.tar
+                                                scp -C gcc.tar miovine0@login.leonardo.cineca.it:/leonardo_scratch/large/userexternal/miovine0
+                                                WE COPY ON THE SCRATCH !!!! --> in this way we can  
+                                                - NOW WE CAN DO THE SAME FOR THE GPU VERSION:
+                                                    - we create the Dockerfile_gpu and we run:
+                                                    sudo docker save --platform linux/amd64 -o nvcc.tar lbm-cpu:latest
+                                                    - ERROR!! --> WE NEED AT FIRST TO BUILD IT!!!:
+                                                    sudo docker build --platform linux/amd64 -t lbm-gpu:v1 -f Dockerfile_gpu .
+                                                    - NOW WE NEED TO CONVERT THE .tar generated WITH DOCKER TO SINGULARITY IMAGES!!!!
+                                                        - module load singularity
+                                                        - singularity build lbm_cpu.sif docker-archive://gcc.tar
+                                                        - singularity build lbm_cpu.sif docker-archive://nvcc.tar
+                                                - MPI:
+                                                    - WE CHOOSE A HYBRID APPROACH:
+                                                        - WE NEED TO PROVISION ACCESS ON A LOGIN NODE, OTHERWISE WE DON'T HAVE 
+                                                          INTERNET CONNECTION NEEDED TO DOWNLOAD AND THEN BUILD MPI!!!
+                                                        - WE CREATE A DOCKERFILE WITH JUST THE DEPENDENCIES AND HEADERS AND LIBRARIES NEEDED FOR
+                                                          MPI --> BECAUSE WE WANT, AT RUN TIME, TO USE THE MPI VERSION PRESENT ON THE HOST
+                                                          MACHINE!!
+                                                        - WE SAVE AS .TAR, WE COPY TO LEONARDO --> WE CONVERT TO .SIF --> IN THE SCRIPT WE 
+                                                          INSERT: --mpi=pmix --> HOST MPI IS INJECTED!!
+                                                        - so:
+                                                            - ACCESS TO GIULIANO CLUSTER: orlanth.oats.inaf.it
+                                                        - jobscript: --mpi=pmix didn't work -->
+                                                            - we changed it by searching an available version:
+                                                            srun --mpi=list
+                                                            MPI plugin types are...
+	                                                        none
+	                                                        cray_shasta
+                                                          	pmi2
+                                                        - PROBLEM: IN THE CLUSTER OF GIULIANO, WE DON'T HAVE mcpxx : THIS MEANS THAT 
+                                                          WE CANNOT COMPILE ON THE HOST --> WE HAVE OPENMPI ONLY AT RUNTIME
+                                                          --> SO THE ONLY SOLUTION IS TO COMPILE AND RUN INSIDE THE CONTAINER
+                                                          --> BIND APPROACH!!!!
+                                                          - we need to modify the local Dockerfile to have inside also mpicxx!!
+                                                            Otherwise it cannot work!!!
+                                                          - because for the Bind approach we need to compile and run inside the container!
+                                                          - build the new docker file: 
+                                                        sudo docker build --platform linux/amd64 -t jacobi_mpi_pl:latest -f Dockerfile_mpi_pleiadi .
+                                                          - I'M VERY STUPID!!!:
+                                                                - MPI WORKS ON THE CLUSTER OF GIULIANO, IT IS SUFFICIENT TO ADD THESE LINES
+                                                                  TO THE JOB:
+                                                                  source /opt/cluster/spack/share/spack/setup-env.sh
+                                                                  spack env activate default-gcc-14
+                                                                - NOW WE CAN RUN IN HYBRID MODE!!!!! 
+                                                                - PROBLEM: THE VERSION OF Apptainer that is installed is too old to have 
+                                                                  the --mpi flag (for hybridation)
+                                                                - so probably we need to compile and run in the container!!!
+                                                                - THERE WAS A PROBLEM:
+                                                                    - we didn't compile in the container, we compiled in the job script
+                                                                    - probably it is better to compile in the contaier, because we have a 
+                                                                      memory issue!!!
+                                                                - we tried on Leonardo, but the job is running forever:
+                                                                    - we add the line: export OMPI_MCA_gds=hash
+                                                                - THERE WAS ANOTHER HUGE ISSUE: 
+                                                                    - the versions of openmpi on the host and in the container must
+                                                                      be the same!! --> so we corrected the Dockerfile!!
+
+
+
+
+
+
+- PETSC COURSE :
+    - stefano.zampini@gmail.com
+    - 6 exercises
+    - numerical linear algebra: studies algorithms that solves linear systems, that compute eigenvalues etc.
+    - C/C++ programming language (library is written in C)
+    - exercises and final small project
+    - Project : 20%, Exercises: 80%
+    - Petsc :
+        - parallel solution of non linear equations and ODEs to easier dev. of sim. codes
+        - petsc.org
+        - usable from c, ++, python, fortran
+        - domain decomposition - Barry Smith ... 
+        - cases where methods are better than others
+        - we install the debug version manually!! (from source) 
+        - we can configure its installation
+        - DOWNLOAD PETSC:
+            - GO TO: https://petsc.org/release/install/install_tutorial/
+            - GO TO DOWNLOAD : --> clone the repo
+            - THEN CONTINUE THE CONFIGURATION!!:
+                - ./configure
+                - make all check
+                - then we can do an export !!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
