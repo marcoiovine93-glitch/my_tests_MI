@@ -4508,17 +4508,137 @@ slurm-slurm-worker2-1   slurm-worker:latest   "/usr/local/bin/work…"   slurm-w
                 - ./configure
                 - make all check
                 - then we can do an export !!
+                    - export PETSC_DIR=$HOME/petsc
+                    - export PETSC_ARCH=arch-linux-c-debug
+                    - export LD_LIBRARY_PATH=$PETSC_DIR/$PETSC_ARCH/lib:$LD_LIBRARY_PATH
+                    - to compile with MPI:
+                        mpicc -o ex2 ex2.c -I$PETSC_DIR/include -I$PETSC_DIR/$PETSC_ARCH/include -L$PETSC_DIR/$PETSC_ARCH/lib -lpetsc
+                    - module purge
+                    - WE CAN ADD THE exports to the bashrc to avoid exporting everytime!!
 
+                - The art of programming (book)
+                - there is always a default as a method!!
+                - ErrorGeneratingFunction() : just to check errors and do debugging!!!
+                - Valgrind 
+                    - address sanitizer
+                        - does the same as valgrind
+                        - valgrind sees the executable and emulate operation!!!
+                        - sanytizer does the same, but adds special codes inside code, but we need to recompile the code!!!
+                        - we use flags to do it!
+                        - we could be able to overlap Communication and Computation with MPI!!!
+                        - Ex 1: it should run in parallel !!!!
+                - When we call VecAssembly, it checks that there is no stash to be communicated to others --> there is no dependency on the ù
+                  particular Rank/Process
+                - There is a lot of communication, but the value will be the same at the end!!! 
+                - AND FOR MATRICES????
+                    - we still have APIs 
+                    - Finite elements to discretize PDEs !!
+                    - we specify 2 sets of indices!!
+                    - AIJ: matrix stored in a sparse format!!
+                    - in parallel with sparse matrices we have the diagonal and off diagonal part!!
+                    - REVIEW THE COO ASSEMBLY!!!!
+                        - COORDINATE ORIENTED FORMAT!!!
+                    - LInear Solvers:
+                        - KSP : Krilov Subspace 
+                    - No linear solvers:
+                        - SNES --> it finds the roots --> but we need to specify the residual function?
+                    - ODE solvers:
+                        - we have the time derivative!
+                        - Lotka-Volterra --> Predator and predes!
+                - WHEN YOU COMPILE, TRY TO SOLVE ALL THE WARNINGS!!!!
+                    - otherwise , we will hide possible errors!
+                - RECALL THE DIFFERENCE BETWEEN THE INFINITE NORM AND THE 1 NORM!!!
+                - parallel exec: mpiexec -n ....
+                
+                - EX 4:
+                    - DMDA : IT CREATES VECTORS AND OBJECT INSTANCES FOR STRUCTURED GRIDS !!!
+                        - in DMDA, the first coordinate is always the fastest --> for c language it is the j index coordinate!!
+                    - AssembleRHS(Vec U)
+                    - AssembleMatrix(Mat A)
+                    - MyMonitor(KSP ksp, PetscInt it, PetscReal rnorm, void *ctx)
+                    - main: 
+                        - DMDACreate2 :                
+                            - Create an object that manages the communication between MPI processes for data distributed across a 2D regular array
+                            - type of ghost nodes for x array
+                            - type of ghost nodes for y array
+                            - stencil type: DMDA_STENCIL_BOX or DMDA_STENCIL_STAR
+                                - ATTENTION !! : PETSC DOESN'T PROVIDE THE COEFFICIENTS!! --> IT PROVIDES ONLY THE STRUCTURE OF THE STENCIL!!!
+                                - AND PROBABLY IT PROVIDES IT FOR THE VARIOUS MPI PROCESSES!!!
+                            - global dimension along x array
+                            - global dimension along y array
+                            - processors along x-direction --> with PETSC_DECIDE we can let Petsc to decide the appropriate number of processes
+                            - processors along y-direction --> with PETSC_DECIDE we can let Petsc to decide the appropriate number of processes
+                            - degrees of freedom per node (???)
+                                - STANDS FOR HOW MANY VARIABLES WE ARE SOLVING PER EACH COMPUTE GRID POINT --> IN CASE OF SCALAR FIELD, IT IS 1
+                            - stencil width (????):
+                                - STANDS FOR THE NUMBER OF NODES WHICH EACH NODE INTERACTS WITH (HIGHER THAN 1 ONLY FOR HIGHER ORDER FIN. DIFF.
+                                  SCHEMES
+                            - lx : arrays containing the number of nodes inside each cell along x direction
+                            - ly : arrays containing the number of nodes inside each cell along y direction
+                            - THE LAST ARGUMENT IS THE OUTPUT !!! --> IT WILL BE AN INSTANCE OF A DM OBJECT !!!
+                        - DMDASetUniformCoordinates:
+                            - it sets the coordinates of the grid point in the domain
+                            - it sets uniform coordinates
+                            - it sets the extreme coordinates along each direction 
+                        - DMCreateGlobalVector:
+                            - allocates memory more efficiently
+                            - it sizes the vectors authomatically
+                        - MatSetStencil():
+                            - we can set in this way a struct!!!!
+                        - DMDAGetCorners
+                            - xs and ys are the starting coordinates of the grid FOR EACH PROCESS : THEY ARE AUTOMATICALLY COMPUTED BY PETSC 
+                              THROUGH DMDA!!
+                            - xm, ym : NUMBER OF GRID POINTS ALONG EACH DIRECTION (COORDINATE)
+                        - PetscCall(MatSetValuesStencil(A, 1, &row, k, col, v, INSERT_VALUES)):
+                            - WITH THIS LINE I CONSTRUCT THE MATRIX CORRESPONDING TO OUR PROBLEMS BY KNOWING THE GRID POINT CORRESPONDING
+                              STENCIL VALUES!!!
+                            - A : matrix
+                            - 1 : number of row to set (1)
+                            - &row : array of the coordinates of the current grid point?? 
+                            - k : how much points of the stencil I have to consider for my current grid point??
+                            - col : array of coordinates of the points part of the stencil of the current grid point to be computed
+                            - v : array of the coefficients corresponding to each stencil point!! 
+                        - PetscFunctionBeginUser:
+                            - First executable line of user provided routines
+                        - In the case of vectors (for example for the RHS of the poisson equation) it is not needed to verify the values on 
+                          the boundary and if we are or not near the boundary
+                        - NOW IT SEEMS TO WORK, BUT THE PROBLEM IS THAT, THE RESIDUAL SEEMS TO DECREASE UNTIL N = 40, FOR N  = 63, IT INCREASES
+                          SLIGHTLY --> WHY?????
+                            - the accuracy is depending by multiple "mobile" parts in the code!!!
+                            - if the grid interval becomes too small with respect to the linear system solver tolerance, we will not see 
+                              a decrease anymore!!!
+                            - so we need to decrease the tolerance of the linear solver:
+                                - ./ex4 -da_grid_x 320 -da_grid_y 320 -ksp_monitor_true_residual -ksp_rtol 1.e-10 (we set to 1.e-10)
+                                - it is really important to check the monitor to see how the residual decreases for the linear solver
+                                - of course, if we apply a direct solver (not iterative), we can increase the grid size as much as we want:
+                                    - ./ex4 -da_grid_x 160 -da_grid_y 160 -ksp_monitor_true_residual -ksp_rtol 1.e-10 -pc_type lu
+                            - valgrind: it seems that the initialization errors are related only to MPI library!!!
+                        - BUT WAIT:
+                            - WE DIDN'T USE THE FUNCTION: DMGetCoordinatesLocal
 
-
-
-
-
-
-
-
-
-
+                - EX 5 :
+                    - SNESGetKSP : it returns the Krylov Subspace context for the SNES context !!! 
+                    - KSPGetPC : it returns a pointer to a Preconditioner --> in the case of the SNEs it is usually defined for efficiency!
+                    - PCSetType : it builds a Peconditioner context for a particular preconditioner type, that we can choose!!
+                        - GAMG : Geometric agglomerated Algebraic MultiGrid preconditioner 
+                    - SNESSetFromOptions : 
+                - EX 6 :
+                    - WE could not run the command: ./ex6 -snes_test_jacobian
+                      with Runge Kutta because it seems it doesn't use the Jacobian at all (????)
+                    - ./ex6 -ts_type beuler -snes_test_jacobian
+                    - ./ex6 -ts_monitor
+                    - then we run the simulation to check that the Hamiltonian rests constant:
+                        - ./ex6 -ts_type beuler
+                        - but the Hamiltonian changed: why?? Because the time step was probably too big for the approximation of the solution
+                        - so we reduced it in the command line: ./ex6 -ts_type beuler -ts_dt 0.01
+                        - but the Hamiltonian is still changing
+                            - THIS IS PROBABLY DUE TO THE EULER SCHEME, THAT IS A FIRST ORDER SCHEME, SO WE RUN IT ALSO WITH A RUNGE KUTTA SCHEME
+                            - WITH RUNGE KUTTA WE GET A CONSTANT HAMILTONIAN!!!
+                            - WE SET DEFAULT PARAMETERS:
+                                - theta0 : 1.0  
+                                - omega : 5.0
+                                - WE CHECK GRAPHYCALLY BY DOING:
+                                    - ./ex6 -ts_dt 0.01 -ts_monitor_draw_solution_phase -2,2,-5,5
 
 
 
