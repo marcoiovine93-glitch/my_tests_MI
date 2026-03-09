@@ -4639,10 +4639,24 @@ slurm-slurm-worker2-1   slurm-worker:latest   "/usr/local/bin/work…"   slurm-w
                                 - omega : 5.0
                                 - WE CHECK GRAPHYCALLY BY DOING:
                                     - ./ex6 -ts_dt 0.01 -ts_monitor_draw_solution_phase -2,2,-5,5
+                        
 
 
-
-
+- QUANTUM COMPUTING COURSE:
+    - ON Leonardo:
+        - ssh-keygen
+        - cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        - module avail qiskit
+        - ml qiskit/
+        - jupyter lab --no-browser
+    - locally:
+        - ssh -N -L 8861:localhost:8861 miovine0@login02-ext.leonardo.cineca.it
+    - then we can connect to the web page:
+        - http://localhost:8861/lab?token=18735735dde337387d594094a8381ff563bb3fe5f5a02ea1
+    - configure virtual environment on local:
+        - python -m pip install "qiskit[visualization]" cirq dwave-ocean-sdk
+    - the only part missing is the Dwave configuration part!!
+    
 
 
 
