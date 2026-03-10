@@ -4662,10 +4662,45 @@ slurm-slurm-worker2-1   slurm-worker:latest   "/usr/local/bin/work…"   slurm-w
 
 
 
+KS-Solvers (QUANTUM ESPRESSO) COURSE :
+    - we need to create a CMake file for the cb_toy folder that makes it to be linked to its sibdirectories
+    - each subdirectory has a proper CMake that creates a library made of the included fortran file in the corresponding directory
+    - so we created 3 CMakr files
+    - then we created a build directory inside P2.6 directory
+    - we got to build and run:
+        - cmake .. -DQE_ENABLE_MPI=OFF -DQE_FFTW_VENDOR=AUTO
+        - REMEMBER THAN WE NEED TO SPECIFY BOTH OPTIONS!!!!
+    - we need then to go to the file:
+        - KS_Solver/CMakefile.txt and erase all the lines containing: .gpu !!!!! --> WE DO THIS TO PREVENT ERRORS AT make ??
+    - we re do the make --> we have a lot of warnings, but no errors!!
+    - WHAT WE DID WAS: COMPILE THE TOY FOLDER BY USING THE DEFAULT CMAKE FILE, THAT CALLS THE NEW CMAKE FILE IN THE cbToy folder --> 
+      the Cmake file in the cbToy folder calls the cmake files in the subdirectories cblib and cboperators!!
+    - THEN: 
+        - we need to create a file named: cb_davidson_main.f90 inside the cb_Toy directory !!!
 
-
-
-
+KS - SOLVERS: APPROXIMATION TO SOLVE IN A MORE TREATABLE WAY THE SHROEDINGER EQUATION !!!
+SCF Loop (Self-Consistent Field):
+│
+├─ Step 1: Start with initial electron density ρ
+│
+├─ Step 2: Calculate Kohn-Sham potential V_KS from ρ
+│
+├─ Step 3: ← YOU ARE HERE ─────────────────────┐
+│          Build Hamiltonian H = -∇²/2 + V_KS │
+│                                              │
+│          For each k-point:                   │
+│          ├─ SOLVE KS equation using KS Solver
+│          │  (e.g., Davidson diagonalization) │
+│          ├─ Get eigenvalues εᵢ(k)           │
+│          └─ Get eigenvectors ψᵢ(k)          │
+│                                              │
+├─ Step 4: Calculate new electron density ρ'  │
+│          from wavefunctions ψᵢ(k)            │
+│                                              │
+├─ Step 5: Check: is ρ' ≈ ρ?                  │
+│          ├─ If YES: Converged! Done.         │
+│          └─ If NO: Go back to Step 2        │
+└──────────────────────────────────────────────┘
 
 
 
