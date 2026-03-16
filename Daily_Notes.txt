@@ -4702,14 +4702,159 @@ SCF Loop (Self-Consistent Field):
 │          └─ If NO: Go back to Step 2        │
 └──────────────────────────────────────────────┘
 
+- EXAM : QUESTIONS ABOUT THE CODE --> REASON BEHIND THE CODE THINGS!!! 
+
+- to create the executable, we need to modify the CMakeLists.txt file in the cbToy directory !!!
+- instead of running: cmake ..  and then : make, we run:
+    - cmake --build . (instead of make) 
+- ATTENTION!!! : 
+    - we have an issue !!!:
+        - THE EXECUTABLE IS NOT CREATED INSIDE THE BIN FOLDER!!
+            - WHY? BECAUSE CMake has a hierarchical structure !!
+                - in the general(root) CMake we need to add reference to the cbToy directory --> then we need to add, in the CMake inside 
+                  the cbToy folder, reference to the subdirectories of cbToy !!
+    - ANOTHER ISSUE:
+        - PROBLEM DUE TO THE LIBRARY CORRESPONDING TO cbLib ADDED ALSO IN THE CMakeLists.txt of the cbLib directory !!!
+    - ANOTHE ISSUE:
+        - WE NEED TO CREATE A LIBRARY ALSO FOR THE FOLDER cb_operator through the corresponding CMake !!
+    - ATTENTION!!
+        - THE LIBRARIES cb_Lib and cb_Operators must be linked between each other!
+            - so cb_lib must be linked to cb_operators AND VICEVERSA!!!
+        - NOOOO !!
+            - WHAT WE WROTE IS WRONG!:
+                - THE cb_operator MUST BE DEPENDANT ON THE  cb_lib, NOT VICEVERSA !!!!
+                - THIS IS NECESSARY, BECAUSE THROUGH THE cb_Lib library, cb_operator can access to the module cb_module !!!!
+    - NOW WE FINALLY HAVE THE EXECUTABLE
+        - WE PASS AND INPUT FILE, TAKEN FROM the example folder !!!
+    - BUT ATTENTION!!
+        - WE NEED TO PAY ATTENTION TO THE init_k ! --> IT MUST BE RELATED TO THE CURRENT K POINT !!!!
+    - WE RUN THE CODE BY DOING:
+        - ./cb_davidson_main.x -i input.in
+    - ATTENTION! :
+        - current_k and nks are defined in the cb_module and we need to call them inside our main!
+    - now we can finally start parallelizing:
+        - COMPILATION ERROR:
+            - Scalapack library is not installed !!!!
+            - so we install the scalapack library:
+                - sudo apt install libscalapack-mpi-dev
+                - correct:
+                cmake .. -DQE_ENABLE_MPI=ON -DQE_FFTW_VENDOR=AUTO -DQE_ENABLE_SCALAPACK=ON -DSCALAPACK_LIBRARIES=/usr/lib/x86_64-linux-gnu/libscalapack-openmpi.so
+        - ERROR AT THE MAKE:
+            - THE PROBLEM IS PROBABLY RELATED TO ALREADY INCLUDED FAILED BUILT FILES IN THE BUILD DIRECTORY --> NECESSARY TO CLEAN THE FOLDER:
+                - rm -rf *
+        - ATTENTION!! : WE DON'T NEED TO EXPLICITLY CALL THE LAXLIB RESOURCE --> IT IS ALREADY CALLED INSIDE mp_global !!!
+        - PAY ATTENTION TO THE CODE STRUCTURE!!! :
+            - the MPI declarations and the call to executables and subroutines must be included after the 
+                - use modules
+                - variable declaration
+                - call to subroutines and functions, allocations etcetera!!
+        - PAY ATTENTION TO THE LINES STARTING WITH "#":
+            - THEY ARE INTERPRETED AS FORTRAN CODE, NOT PRE-PROCESSING DIRECTORIES, SO WE LAUNCH THE CMAKE IN THE FOLLOWING WAY:
+                - 
+        - WE HAVE ANOTHER ISSUE:
+            - WE NEEDED TO DECLARE THE VARIABLE my_comm AND ALSO ndiag, BECAUSE THEY ARE DEFINED ONLY AS VARIABLES INSIDE THE mp_startup 
+              SUBROUTINE INSIDE THE mp_global MODULE !!!!
+            - WE NEEDED ALSO TO DECLARE AND INITIALIZE THE VARIABLE do_distr_diag_inside_bgrp, BECAUSE WE NEED TO PASS A VALUE TO THE 
+              SECOND ARGUMENT OF THE SUBROUTINE mp_startup !!!
+                - WE CHOOSE TO ASSIGN IT TO TRUE
+                    - WE CHOOSE THE HIERARCHICAL SPREADING OF PROCESSES : K -> BAND -> DIAGONAL
+            - WE MODIFIED THE general CMakeLists.txt file !!!
+        - ATTENTION !!: 
+            - THE PREPROCESSOR DIRECTIVES MUST BE ADDED WITHOUT ANY SPACE BEFORE IN THE LINE (FOR EXAMPLE THE #instructions)
+        
+
+        - LEONARDO ( 2nd and 3rd exercises ): 
+            - THE MAKE GIVES AN ERROR:
+                - IN PARTICULAR, WE CAN SET THE NUM. OF PROCESSES, AND VARY THE NUMBER NDIAG UNTIL NPROCESSES !!!
+            - BUT AFTER HAVING LOADED THE MODULES ON THE SLIDES, WE DON'T NEED TO ADD THE CMAKE THE FLAG FOR LIBRARIES
+            - THEN WE HAVE STILL THE ERROR RELATIVE TO THE PREPROCESSOR DIRECTIVES!!!
+            - we do the cmake .. with the flags:
+                - cmake .. -DQE_ENABLE_MPI=ON -DQE_ENABLE_SCALAPACK=ON
+            - FIX OF THE PROBLEM:
+                - WE LOADED THE MODULES:
+                    - module load intel-oneapi-compilers
+                    - module load intel-oneapi-mpi
+                    - module load intel-oneapi-tbb/2021.12.0
+                    - module load intel-oneapi-mkl
+                - then we went in the build dir. :
+                    - cmake .. -DQE_ENABLE_MPI=ON -DQE_ENABLE_SCALAPACK=ON
+                    - cmake --build .
+            - EXECUTION :
+                - WE NEED TO BE SURE THAT nd IS A PERFECT SQUARE, BECAUSE WE NEED TO HAVE THE SAME NUMBER OF COLUMNS AND ROWS!!!!
+                - remember!! : to define the ndiag in the job script you need to put the flag: -ndiag !!!!
+          
+
+           - 4TH EXERCISE :
+                - we need to modify:
+                    - mp_pools MODULE : 
+                        - create the inter and intra pool inside the mp_start_pools subroutine
+                        - they are created at the lines: 86 and 92 (in mp_start_poolsi)
+                    - mp_global MODULE :
+                        - mp_startup:
+                            - same structure of band groups (rows from 54 to 79)
+                        - ATTENTION! : FOR THE BAND BROUPS, WE CALLED THE FUNCTION laxlib_start FROM THE LAXlib folder (laxlib_low.h --> interface 
+                          lax_lib_start)
+                        - PROBABLY IN THIS CASE WE NEED TO DO SOMETHING SIMILAR FOR the folder UtilXlib (file: divide.f90)
+                        - get_command_line already accepts npool as flag !!!
+                        - CHANGES:
+                            - use mp_pools
+                            - define npools as input
+                            - call the function: mp_start_pools
+                    - divide : 
+                        - in this code, we have the spread of the points among different processes in a way similar to what we did for 
+                          the parallel programming course
+                        - in particular an important thing is the communicator passed as input to the subroutine
+                            - THE COMMUNICATOR IS IMPORTANT BECAUSE BASED ON IT WE ARE ABLE TO DISTRIBUTE THE INDEX AMONG DIFFERENT PROCESSES!!
+                            - THIS IS PROBABLY THE REASON WHY, FOR THE BAND GROUPS, WE HAVE A COMMUNICATOR FOR COMMUNICATION ACROSS 
+                              BAND GROUPS AND A COMMUNICATOR FOR COMMUNICATION WITHIN A SINGLE BAND GROUP!!!!
+                            - BECAUSE IN THIS CASE WE DON'T HAVE A PROPERLY SHARED AND DISTRIBUTED MEMORY!!
+                        - the second argument of the divide subroutine is the number of key points (nks) !!!!!!i
+                    - write_bands:
+                        - we modify it to do a print for each k-point!!
+
+          - REMEMEBER!!
+            - the key points are spread among the Processes !!!
+                - it is not the opposite!!!!!
+                - and as well the processes are distributed among different groups !!!
+            - THE CODE FOR THE K-POINTS PARALLELIZATION PROBABLY CRASHES DUE TO AN ERROR:
+                - THE LINES : 70 AND 75 SHOULD BE INVERTED
+                - BECAUSE WE NEED, AT FIRST, TO INITIALIZE THE POOLS AND THEN, TO INITIALIZE THE BANDS (IN THIS CASE HYERARCHICALLY WE HAVE 
+                  PROCESSES SPREAD AMONG POOLS --> FOR EACH POOL WE HAVE SOME CERTAIN K-POINTS ON WHICH THE COMPUTATION IS EXECUTED !!!!
+                - this is why we need to invert them
+                - ANOTHER IMPORTANT ISSUE: 
+                    - THE POOL LINE (OF THE 2) NEEDS TO HAVE THE COMM_WORLD COMMUNICATOR, BUT THE SECOND ONE?
+                  
+                           
 
 
 
 
-
-
-
-
+MACHINE LEARNING COURSE :
+    - 60 % GRADE : EXERCISES --> WE HAVE 4 DAYS TO COMPLETE THEM SINCE THEY ARE GIVEN EACH DAY!!
+    - 40 % GRADE : TEAM PROJECT --> IN GROUPS OF 4 PEOPLE !!
+    - choose the best machine learning model!!
+        - within the accuracy we want to achieve !!!
+    - statistics
+    - bayesian statistics
+    - data analysis
+    - ML
+    - ML models for regression, classification, model selection in ML
+    - books: ian goodfellow book (hands on)  and Bishop book (theory)
+    Libraries:
+        - Pandas:
+        - Seaborn:
+        - Scikit-learn
+    Turing test??
+    
+    - EXERCISES:
+        - WE PROCEED LOCALLY
+        - we install a new environment conda and activate it:
+            - conda create --name NAME
+            - conda activate NAME
+        - we install pip:
+            - conda install pip
+        - we pip install the libraries:
+            - pip install libraries names
 
 
 
