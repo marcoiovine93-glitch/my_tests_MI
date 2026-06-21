@@ -1,0 +1,16 @@
+21/06/2026:
+
+- Analysis of the Lattice Boltzmann code for the 2nd GPU course:
+    - there is the use of the built-in function: cudaMemcpyToSymbol : WHY ????
+        - by using it, we avoid to do an additional API call, in fact (Stack overflow reference) we get the following lines to do the same
+            - __constant__ float coeffs[8]; // CONSTANT MEMORY ARRAY
+              // WE WANT TO COPY IT FROM THE HOST TO THE DEVICE:
+              float *dev_coeffs; // WE INSTANTIATE A DEVICE POINTER
+              cudaGetSymbolAddress((void**)&dev_coeffs, coeffs); // WE RETURN A DEVICE POINTER ASSOCIATED WITH THE VARIABLE coeffs !!!!
+              cudaMemcpy(dev_coeffs, host_Data, 8*sizeof(float), cudaMemcpyHostToDevice); //WE CAN FINALLY COPY FROM HOST TO DEVICE THE host_Data !!!
+           - OTHER WAY SIMPLER (WITH THE USE OF cudaMemcpyToSymbol):
+              cudaMemcpyToSymbol(coeffs, host_Data, 8*sizeof(float), cudaMemcpyHosToDevice);
+           - QUESTION : are we sure that the current architecture and software configuration and CUDA is not able to apply simply a CudaMemcpy?
+                        because the virtual addresses space should be shared between the Host and the Device!!!
+            
+              
