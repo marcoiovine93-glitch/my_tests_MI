@@ -1,0 +1,5 @@
+PICA ACCESS:
+-   in order to access the website in a proficient way (to make available to send applications) it is necessary
+    to access by doing a reset password: once we are able to access with the reset, we can then choose an application
+-   ATTENTION!!: EVEN IF WE CHANGE THE PASSWORD, FOR A NEW ACCESS WE WILL NOT BE ABLE TO USE THE NEW PASSWORD, WE NEED ANYWAY
+    TO REPEAT THE RESET !!!!
