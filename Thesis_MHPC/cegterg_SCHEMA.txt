@@ -1,0 +1,22 @@
+[Expand Subspace: nbase_new = nbase_old + notcnv]
+                         │
+                         ▼
+1. Compute H*psi and S*psi   <-- ONLY for the NEW vectors (nbase_old + 1 ... nbase_new)
+                         │
+                         ▼
+2. Update hc & sc            <-- Rebuild/extend subspace matrices (hc = <psi|H|psi>)
+                         │
+                         ▼
+3. Enforce Hermiticity       <-- Clean diagonal & upper triangle (the 1st loop you asked about!)
+                         │
+                         ▼
+4. Diagonalize (diaghg)      <-- Solve H_sub * vc = E * S_sub * vc to get new E and vc
+                         │
+                         ▼
+5. Evaluate Convergence      <-- Check new residuals R_n against ethr
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+     [All Converged?]         [Not Converged?]
+           │                         │
+      EXIT LOOP                 Repeat Steps!

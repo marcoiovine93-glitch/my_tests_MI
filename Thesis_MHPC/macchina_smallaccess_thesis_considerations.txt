@@ -1,0 +1,71 @@
+spark-dgx-qe.cm.sissa.it
+
+user: marco
+
+password: emp
+
+
+la memoria è condivisa
+
+
+df -h  : filesystem
+
+
+nvpl for compiling:
+
+
+evc_batched --> ognithread chiama la sua bacthed --> possiamo pensare di chiamare un'unica cegterg per una singola batched
+--> cegterg che accetti direttamente array con una dimensione in più --> lavora su tutta la bacthed
+
+
+hc_batched(:,:,i_batched) = hc
+lo stesso anche per sc
+
+ew(:,:,ibacth) = ew
+!$omp barrier
+RIGA PER FAR Sì CHE SOLO UN THREAD LANCI!!
+call del nuovo diaghg batched
+FINE PER SEZIONE DI LANCIO DI UN SOLO THREAD!!
+ricopia del vc:
+vc = vc_batched(:,:,i_batch)
+CONTROLLARE SE W è BIDIMENSIONALE O MENO!!
+
+
+
+next step :
+ZGEMM !!!
+
+
+
+rigo 505 :
+    - chiamata alla versione batchata della function!!!!
+
+
+una volta imparato come è fatta l'interfaccia del solver batchato,
+- laxlib_cusolver_hanldes : va inizializzato --> se necessario bisogna costruire un nuovo handle!!!
+- vedere dove sono chiamate le routine 
+- i
+
+tenere conto del padding per aggiungere autovalori il più possibile lontani!!! Per risolvere il problema delle matrici!!!1
+- n-k per n-k matrix _-> aggiungere autovettori sulla diagonale con autovalori grandi ma non degeeri e poi, quando ricavare la hc, 
+  dovremmo considerare solo i primi 1000 autovalori???
+- ogni thread lavora al suo batch --> noi vogliamo che cegterg lavori su un indice e una sorta di vettore 
+
+
+We can introduce the environment setup by adding the following lines in the jobscript:
+export nv_version=26.3
+export nvhome=/opt/nvidia/hpc_sdk/
+export target=Linux_aarch64
+export PATH=$nvhome/$target/$nv_version/compilers/bin:$PATH
+export PATH=$nvhome/$target/$nv_version/comm_libs/hpcx/bin/:$PATH
+export CMAKE_PREFIX_PATH=/opt/nvidia/hpc_sdk/Linux_aarch64/$nv_version/cmake/:/opt/nvidia/hpc_sdk/Linux_aarch64/$nv_version/math_libs/nvpl/lib/cmake/:$CMAKE_PREFIX_PATH
+
+To compile QE miniapp:
+CC=nvc FC=nvfortran cmake ../ -DBLA_VENDOR=NVPL -DQE_FFTW_VENDOR=NVPL -DQE_ENABLE_OPENMP=on
+
+
+WARNING!!!:
+    - THE FUNCTIONS NEEDED FORTHE PARAMETERS OF cuSolver batching and for the Batch API are not callable as call ...
+    - we need to set an output: STATUS = function_call
+
+

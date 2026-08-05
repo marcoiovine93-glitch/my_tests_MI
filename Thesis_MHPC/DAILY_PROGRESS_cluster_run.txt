@@ -1,0 +1,164 @@
+02/08/2026:
+
+- CLUSTER BATCH RUN:
+    - to run a batch with slurm:
+        sbatch <job_name>
+    - to check what accounts are available for the current user:
+      sshare -u $USER
+
+- Hardware architecture check
+    sinfo <partition_name> -o "%.12P %.20G %.25f %.10c %.10m %.15N"
+
+- ERROR: PAY ATTENTION TO THE ALLOCATABLES!!:
+    - when we define them we don't need to specify the size for the allocation!!:
+        example: INTEGER(8), ALLOCATABLE :: example(:)
+        NOT: example(num)
+
+- ERROR: incorrect sequence of statements:
+    - incorrect sequence of statements:
+        - IMPLICIT NONE MUST BE INCLUDED AFTER the use.. lines!!
+        - #if defined(_OPENMP)
+             USE omp_lib, only: omp_get_thread_num
+          #endif 
+            - the part with OpenMP cannot be inserted inside the body declaration
+    
+    - Derived type has not been declared - syevjinfo:
+        - THIS IS REALLY IMPORTANT:
+        - the error depends on the modules defined on the cluster and on the NVIDIA C/C++ CUDA toolkit headers
+        - the headers are located in:
+            - $CUDA_HOME/include/cusolverDn.h --> THIS IS NOT TRUE!!!
+                - I need to load the module to find it!!!
+        - Use cusolverDn in the code makes possible to load a Fortran module cusolverDn.mod provided by the compiler NVIDIA HPC SDK (nfortran)
+        - In the modules, NVIDIA creates Fortran Derived Types by using           ISO_C_BINDING to wrap together the pointers
+        - These derived types correspond to HANDLES and to INFO or CONFIGURATION descriptors
+        - FOr the HANDLES, Fortran provides aliases with and without "_t":
+            - TYPE(cusolverHandle) equivalent to TYPE(cusolverHandle_t)
+        - For the parameters, it doesn't provide aliases without _t:
+            - TYPE(syevjInfo) --> WRONG!!
+            - TYPE(syevjInfo_t) --> CORRECT!!
+            - PROBLEM:
+                - we still observe the problem
+                - WHY? Because probably the version of NVIDIA HPC SDK (NVHPC SDK) does not provide a cusolverDn module with the custom wrapper derived type syevjInfo_t
+                - HOW TO SOLVE??
+                    -  We can define a C-pointer binded to Fortran and a C pointer to null binded --> in this way we can avoid defining a derived 
+                       type corresponding to the custom wrapper
+                    -  REMEMBER THAT THE AUXILIARY PARAMETER HANDLES ARE opaque c-pointers
+
+        - INSPECT MODULE FILES BEFORE LOADING THEM:
+            module show nvhpc
+        - TO CHECK WHAT MODULES ARE LOADED AND THE LOCATION OF THE LIBS (L) AND THE FILES TO BE INCLUDED (I) :
+            - env | sort 
+
+        - ERROR: Keyword form of argument illegal in this context for kind
+            - it is due to the fact that COMPLEX(2.0D0, 0.0D0, kind=8) : THE kind=8 is wrong, we just need to put "8" instead!
+
+        - ERROR : Illegal use of symbol cusolverdncreate - attempt to CALL a FUNCTION
+            - the function to create and Destroy the cusolverDn handle need to be called as : STATUS = function, NOT as CALL ...
+        - ERROR: complex, has not been explicitly declared
+            - REMEMBER THAT THE COMPLEX(8) is used only when we define it as the type of the variable, when we want to write a value as complex,
+              we simply do: (2.0D, 0.0D)
+        - WARNING!!:
+            - WE NEED TO PAY ATTENTION TO THE CUDA VERSION and especially to the NVDIA HPC SDK Toolkit version!!
+                - some older Toolkit version don't support the APIs with complex values!!!
+        - WE HAVE THE ERROR:
+            -   1 nvfortran-Error-A CUDA toolkit matching the current driver version (12.2) or a supported older version (11.0 or 12.3) was not installed with this HPC SDK.
+        - ATTENTION!!:
+            - CUDA follows a strict rule: The CUDA Toolkit version cannot be higher than the maximum CUDA version supported by your installed GPU drive
+        
+        - ERROR:
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:120: undefined reference to `cusolverdncreatesyevjinfo_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:121: undefined reference to `cusolverdnxsyevjsettolerance_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:122: undefined reference to `cusolverdnxsyevjsetmaxsweeps_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:123: undefined reference to `cusolverdnxsyevjsetsorteig_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:136: undefined reference to `cusolverdndsyevjbatched_buffersize_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:142: undefined reference to `cusolverdndsyevjbatched_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:152: undefined reference to `cusolverdndestroysyevjinfo_'
+
+- PROBABLY THE ONLY WAY TO OVERCOME THE ERROR IS TO INTRODUCE A C-BINDING FOR THE APIS CORRESPONDING TO THE 
+
+
+WARNING!!!: d_w must be allocated after the BufferSize call!!!
+
+- to access machine small cluster: ssh spark-dgx-qe.cm.sissa.it
+- how to set a new password: 
+    passwd
+
+
+- HOW TO SET PASSWORDLESS ACCESS TO CLUSTER:
+    - local machine : go to or create the folder .ssh --> if there are still the ssh keys, we will see 2 ids: one .public and one without it
+    - we need to copy the public key to the cluster with scp
+    - on the cluster: create the folder .ssh --> copy the copied key in a file named authorized_keys
+    - local machine: create a file in the folder .ssh called configure and set the Host, the usrname, the pertition
+
+
+- COMPILE THE CODE ON SMALL CLUSTER:
+    - we see a similar issue to the Leonardo one:
+        - NVFORTRAN-S-0188-Argument number 1 to cusolverdncreatesyevjinfo: type mismatch (script_cusolver_batched_test.f90: 126)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdnxsyevjsettolerance: type mismatch (script_cusolver_batched_test.f90: 127)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdnxsyevjsetmaxsweeps: type mismatch (script_cusolver_batched_test.f90: 128)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdnxsyevjsetsorteig: type mismatch (script_cusolver_batched_test.f90: 129)
+NVFORTRAN-S-0188-Argument number 9 to cusolverdnzheevjbatched_buffersize: type mismatch (script_cusolver_batched_test.f90: 139)
+NVFORTRAN-S-0446-Argument number 10 to cusolverdnzheevjbatched: rank mismatch (script_cusolver_batched_test.f90: 150)
+NVFORTRAN-S-0188-Argument number 11 to cusolverdnzheevjbatched: type mismatch (script_cusolver_batched_test.f90: 150)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdndestroysyevjinfo: type mismatch (script_cusolver_batched_test.f90: 161)
+    
+    - But probably is all originating from the fact that the Sinfo variable is not declared in line with the module present in fortran 
+      for wrap the opaque c struct!!!
+    
+    - deferred type array:
+        - array whose size and values are not stated at compile time, but during the program execution!!!
+    
+    - SOLUTION !!!!! :
+        - the right way to define the syevjinfo parameters is the following:
+            TYPE(cusolverDnSyevjInfo) :: syevj_params
+            - NOT: TYPE(c_ptr) :: syevj_params = c_null_ptr or TYPE(syevjInfo) = ....  WARNING!!!
+            - Resource: run nvidia_interfaces to go to : https://docs.nvidia.com/hpc-sdk/archive/21.3/compilers/fortran-cuda-interfaces/index.html#cfsolver-runtime
+
+    - NOW WE HAVE A PROBLEM WITH THE d_info ARGUMENT OF THE BATCHED API!! --> rank problem
+        - SOLUTION: we introduced an INteger instead of an array for d_info and it seems to work!!
+        - This means that the Fortran interface bundled with the module considers the d_info not as a pointer, but as a scalar!!
+            - ARE WE SURE????
+
+    - ATTENTION!!!!
+        - the cusolverDn module in fortran is already provided with an interface that wraps the C functions and types to fortran with a proper 
+          binding
+        - if we want to do a manual binding, we need to do it for all the functions included in cusolverDn, we cannot do it only for the 
+          API calls that show errors --> no possibility of hybrid approach!!!
+
+    - How to check if a fortran module has a specific type or function??
+        - IT DEPENDS ON THE ERROR --> IF IT STATES THAT THE NAME IS WRONG, BUT IT SEES IT, PROBABLY IT IS PROVIDED WITH THAT FUNCTION!
+
+    - PROBLEM with d_info:
+        - for C language it is defined, as argument of the batched function, as an array/pointer, however if we define it as an array 
+            - rank problem
+        - If we define it as a scalar, we get a segmentation fault when we try to print it because it seems that the cusolver batched api try to
+          write more data in a single value scaral variable
+        - SOLUTION: we defied it as an array 1D --> but we put in the batched function d_info as: d_info(1)  !!!!
+
+    - PROBLEM: WE SEE AN ISSUE ALREADY AT THE cusolverDn creation
+        - possible reasons: acc not specified at compile 
+        - How to check the gpu available?
+            - command: nvidia-smi
+            - what is the compute capability?? : it is the version of the graphic card given by NVIDIA!!!
+                - it can change a lot among different GPUs!!
+    
+    - COMPILE ERROR: 
+        - on the small machine, we should compile with:
+            - nvfortran -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_cusolver_batched_test.f90
+    
+    - ERROR AT RUNTIME:
+        - Failing in Thread:0
+          Accelerator Fatal Error: call to cuInit returned error 805 (CUDA_ERROR_MPS_CONNECTION_FAILED): MPS client failed to connect to the 
+          MPS control daemon or the MPS server
+        - What is MPS control daemon???
+            - it is the Multi-Process-Service
+            - runtime service to enable cooperative CUDA multi process and multi application workflows 
+            - in this case we don't need it, so we can run by launching:
+                CUDA_MPS_PIPE_DIRECTORY=/tmp/nonexistent-mps-dir-marco ./script_diag
+
+Single thread run instruction to compile and run on small cluster:
+set the enviroment
+compile: nvfortran -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_cusolver_batched_test.f90 
+(nvidia-smi to check the GPU available)
+run: CUDA_MPS_PIPE_DIRECTORY=/tmp/nonexistent-mps-dir-marco ./script_diag
+

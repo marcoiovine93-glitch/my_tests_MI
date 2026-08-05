@@ -1,0 +1,23 @@
+tudy nvidia for batching 
+cegterg
+task_parallelization_gpu branch
+line 319: hc nd sc matrices --> recreate collected versions of these matrices --> 
+REVIEW THE WHOLE SLIDES AND CONNECT WITH CODE
+- WE USE OPENMP BECAUSE WE HAVE A LATENCY PROBLEM
+- IN THE CUSOLVER SLIDES THERE SHOULD BE SOMETHING ABOUT BATCHING
+    - WE WANT TO BATCH ALL THE KERNELS IN A SINGLE KERNEL
+    - A SEPRATE VECTOR SPACE FOR EACH MATRIX
+    - WE BUILD A BIG VECTOR SPACE AND WE GET A BIGGER VECTOR SPACE
+    - SEE THE PROFILING WITH NSYS
+    - EVERYTHING IS DONE PUTTING THINGS ALL TOGETHER (BIG KERNEL)
+    - LOOK AT CB_DAVIDSON.F90 and cegterg.f90 
+        - what's the difference between cegterg.f90 and cegterg_gpu.f90??
+    - gang loop for bathcing!!
+    - maybe we will pass to the entire QE simulation after the implementation
+
+- there is a way to do the batching for symmetrical case
+- for the generilized one, not --> we need to convert it to a symmetrical one
+- synchronization --> collect back data --> try the bacthed API for the symmetrical one --> it should be working --> we move to the generalized one 
+- what is the difference between OpenMP offloaded and not offloaded?
+    - WHY IS IT NOT COMPATIBLE WITH OpenACC??
+

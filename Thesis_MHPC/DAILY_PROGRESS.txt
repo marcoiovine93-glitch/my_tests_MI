@@ -1,0 +1,396 @@
+## QUANTUM ESPRESSO (with NVIDIA guys) :
+
+First days (21/07 - 23/07):
+- review of GPU basics for architecture
+- first review of principle parts of Quantum Espresso, Kohn Sham equations derived from Density Functional Theory approach, 
+  plane waves and pseudopotential --> eigenvalue-eigenvector problem solved through Diagonalization with Davidson method!!
+
+
+23/07 :
+- PROBLEMS:
+    - I cloned locally the Repo, but I don't see the branches locally!!!
+    - What is the difference between the fftw and the fft files in the FFTXlib package??
+    - what Laxlib contains and what it does??
+    - Why we have a lot of CMAKE files and why are checking/searching an installed specific library?
+    - Why in cegterg we  use device_memcpy_m ? Where is it defined??
+    - mytime : where is it defined??
+    - laxlib.fh : is it an image file???
+    - 
+- QUANTUM ESPRESSO CODE STRUCTURE:
+    - Libraries:
+        - DEVMEMLIB:
+            -
+        - FFTXlib:
+            - real space grid parallelization of FFT and task groups;
+            - provides testing and timing codes for performance anal.
+              of FFT.
+            - fft_ggen.f90 :
+                - fft_set_nl:
+                    - takes FFT type descriptor, lattice vectors, G-vectors in the reciprocal space (plane waves)
+                    -  
+        - UtilXlib
+            - inter_bgrp_comm and intra_bgrp_comm:
+                - they are communicators for case in which we introduce MPI distributed parallelization: 
+                    - intra: inside a certain energy band?
+                    - inter: between different energy bands
+        - LAXlib:
+            - Library used for linear algebra and manages interfaces for math operations
+            - calls BLAS and LAPACK packages for linear algebra!!!
+            - Zero/Double-precision complex General Matrix Multiplication --> it is contained in the BLAS library --> product of 2 double precision matrices and matrix update 
+    - cbToy: miniapp to test and implement changes to a smaller version of Quantum Espresso
+        -
+    - KS_Solvers:
+        - Modules:
+            - cegterg.f90:
+                - subroutine 
+        - Davidson:
+            -  
+
+TIME PLANNING :
+- at first we apply to the miniapp --> then to QE entiely
+- 
+
+
+
+FIRST NVIDIA MEETING:
+- call the single eigensolve?
+    - is it better?
+    - GPP? or generalized one?
+    - general idea: put the blocks together 
+    - not general one: use APIs to be faster --> WE WANT TO ASK NVIDIA
+        . THROUGOUT THE IMPLEMENTATION TO KNOW DETAILS AND UNDERSTAND
+          IF IT IS WORTH IT AND IF CAN BE BETTER
+        - our problem is the throughput --> that's why openMP has been applied (REVIEW THIS!!!) 
+        - WE DON'T NEED TO PUT THE MATRICES ALL TOGETHER
+        - BATCH GBD API USABLE????
+        - for the entire QE we have also an overlap matrix and a Cholesky path
+        - from symmetrical approach to generalized can be done 
+          automaticly??
+
+    - Band parallelization for Davidson solver??
+        - BAD WORK BALANCE: ONLY THE BANDS OF THE LAST GROUP CONVERGE??
+        - COMMUNICATION WORST THATN C-GEMM
+        - 
+
+
+
+
+24/07 - 25/07 :
+
+
+- Let's concentrate on the parts of the QE related to the mini-app (cegterg, for instance)
+- regterg : it is analogous to cegterg, the difference is that cegterg represents the computation of the eigenvalue problem with complex values 
+            and complex matrices -> regterg is used for real values and real matrices (for the real space??) and it is used probably
+            for computationally heavier problems, where we have bigger matrices???? (MAYBE WWE WILL USE IT AFTER HAVING WORKED ON THE MINIAPP
+- FFT : The FFT is applied in a certain way in order to reduce the computational cost --> the reciprocal space would require a convolution
+        applied to the wave function eigenstates, that is computationally heavy --> we apply a FFT to go to the real space --> it will be sufficient
+        to have a product instead of a convolution --> THEN we apply the inverse of the FFT to come back to the reciprocal space!!!
+- cegterg.f90 : can be seen as the main of the Quantum Espresso and it is used also by the MiniApp produced by Nisha !!!
+- Generilzed vs Simmetrycal case :
+    - the Generlized case has also the S matrix in the diagonalization!!!
+
+
+Git Error when removing a folder connected to a Git Repository:
+- remove write-protected regular file ... ? :
+    - this error is due to the fact that when we connect a Repository, it is created a folder : .git/objects/ with read-only permission
+    - this folder represent the objects committed, and the read-only permission is added to avoid to modify/corrupt commit history!!!
+    - THIS IS THE REASON BEHIND THE QUESTION!!
+    - to forcethe delete: rm -rf       (recursive, forced)
+
+- SEARCH text in files in current and child folders:
+    grep -rl "text"
+
+- mp_global.f90 :
+    - world_comm : all the processors
+    - inter_pool_comm, intra_pool_comm :
+        - intra: operations made inside a specific group of processors, having operations in common, for instance
+        - inter: communication between disjoint groups of processes 
+        - processors within a pool of k-points
+    - inter_bgrp_comm, intra_bgrp_comm : 
+        - processes within a pool of energy bands
+
+
+####    
+cegterg.f90 (ORIGINAL VERSION):
+- util_param.f90 (module) --> DP: selected_real_kind(14, 200)
+    - it assigns an integer to a kind of floating point
+      real number defined by 2 parameters:
+      - P : number of significant decimal digits
+      - R : range in absolute value as exponent of 10 
+            ( from 10^-R to 10^+R )
+      - it is another way to express the floating point 
+        representation, but with reference to base 
+        10 for the exponential part !!!!
+      - 1) Matrix parameter defined
+      - 2) Eigenvectors, threshold for iterative Davidson, bands, estimeated roots, numb. of individual hpsi (npsi)
+            - hpsi should be the product of the psi (eigenstates corresponding to wave functions?) for the Hamiltonian H??
+      - !$acc : directive to tell compiler to run on GPU
+      - OPENACC directives are enabled by addig -acc flag to compiler command line
+      - 3) LOCAL VARIABLES
+            - allocatable (arrays) for:
+                - Hamiltonian on reduc. basis
+                - S matrix on reduc. basis
+                - eigenvectors of Hamiltonian
+            - OPEN ACC: declare device resident:                
+                - usually used for static global arrays, but in this case it is used for dynamic array allocated in device memory 
+                - device memory allocated for the entire run time execution - otherwise "create" allocates data only inside the structured or unstructured data region (https://forums.developer.nvidia.com/t/error-when-using-device-resident-and-present-directives/133169/4)
+                    - create : device variables with scope and lifetime limited to data region
+                    - device_resident : same scope and liftime of the variable itself (??)
+                    - __CUDA : this is a macro that indicates that the following code is executed only if we consider a CUDA compiler --> FOR EXAMPLE for OpenACC, we don't need a CUDA compiler, we need only the OpenACC flag (like openMP)
+                        - This is the reason why cublas, and other packages, are included only for CUDA compiling --> they are included as CUDA libraries 
+                        - EXTERNAL: subprograms declared with this statement can be used as arguments to another sbprogram ??
+                            - h_psi_ptr, s_psi_ptr and g_psi_ptr are subprograms
+                        - DX(*) : Array a dimensione presunta --> eredita dimensione da array passati in input alla chiamata di funzione
+                        - MYDDOT_VECTOR_GPU : External function declared for compiling, that is defined in: UtilXlib/device_helper.f90
+                            - it does the dot product between arrays --> IF __CUDA , the Loop over all the components is UNROLLED in order to have iterations with 5 single components product sum --> SO IT IS DONE A REDUCTION WITH OpenACC on the unrolled loop
+                            - for the Not CUDA case, the DDOT built in function for the BLAS library!! 
+                        - !$acc routine(MYDDOT_VECTOR_GPU) vector :
+                            - we make the function to be compiled in order to be executable on the device, and to be mapped for parallelization at the vectors (CUDA threads) level
+                        - nvec: number of low-lying roots
+                        - nvecx: maximum dim. of reduced basis set
+                        - npwx: NUMB. OF ROWS OF ORIGINAL TOTAL MATRIX (LEADING DIM)
+                        - npw: MATRIX TOTAL DIM. TO BE DIAGONAL.
+                        - nbase : dimension of reduced basis in line with Davidson algorithm
+                        - kdim:
+                        - kdmx:
+                        - CHUNKS for GPU:
+                            - We consider: numblock = (npw+blocksize-1)/blocksize
+                                - WHY THIS?: Because if npw is not divisible for blocksize, we want anyway that the blocks take the whole matrix --> considering that the rest of the division is at most = blocksize - 1 , by summing this quantity to the number of elements and dividing by the blocksize, we get a numblock increased of an amount  sufficient to be sure to take the whole MATRIX!!!
+                        - !$acc data deviceptr(e) : ????
+                            - e(nvec) : estimated root eigenvalues as real numbers
+                            - deviceptr is used to tell compiler the variable's address, defined as instruction on CPU, represents an address on the GPU --> WHY WE USE THIS?????
+                                - we should not use it considering that usually is is used when the variable is already allocated directly through CUDA Fortran, but in this case it should not be true!!
+                        - OPENACC:" !$acc enter data create " is used to create device variable corresponding to a host variable (we don't use CudaMemCopy for example)
+                            - we apply it to copy to device psi, hpsi, spsi
+                        - OPENACC: !$acc host_data use_device(evc, psi)
+                            - host_data : we make the device addresses available (exposed) for the host (CPU) in order to make CPU able to make operations on them and pass them to functions
+                            - use_device(evc,psi) : we decide what device variables we want to get addressing exposed
+                            - this means that both variables evc and psi must be defined on the device (but evc seems NOT....)
+                            - attributes(device) : inside device_memcpy_interf.f90
+                                - this attribute from CUDA Fortran 
+                                  advises the compiler that the parameter will be a raw GPU pointer!
+                            - devmemcpy : it is taken from the module where it is contained an interface with several subroutines
+                                - WHAT IS DOES??
+                                    - IT SEEMS IN A WAY TO COPY evc into psi???
+                            - h_psi_ptr : subroutine to compute H|psi>
+                                - WHERE IS defined THIS subroutine??
+                                - h_psi_ptr(npwx,npx,nvec,psi,hpsi)
+                            - s_psi_ptr : subroutine to compute S|psi> --> present only if the overlamp matrix is present!!
+                            - INIT :
+                                - we have another host_data use_device
+                                    - we call divide_all(divide.f90 module) : it divides nbase, equal to nvec, for each processor rank, giving in output the corresponding indices
+                                        - it gives the start and end indices for each process rank. Index is distributed across group of processes
+                                        - inter_bgrp_comm is the communicator for lattice bands between different MPI processes
+                                    -  mp_type_create_column_section(module mp in file UtilXlib/mp.f90):
+                                        - module for MPI operations
+                                        - contains call to MPI function: MPI_TYPE_CREATE_SUBARRAY
+                                            - it creates an MPI Type corresponding to the memory layout of a given subarray --> so in this way we can directly send a certain data layout in MPI directly with new datatype??
+                                   - Call to BLAS library function ZGEMM: used for matrix multiplication
+                                        - hc(1,n_start) indicates the pointer to the first element of the memory slot
+                                        - nbase : number of rows
+                                        - n_start and n_end are indices for the columns of the matrix!!
+                                   - mp_sum : interface inside module mp (mp.f90)
+                                        - it calls subroutines in UtilXlib/mp_base_gpu.f90
+                                        - it performs a sum, for the matrix sc, in parallel, over processors within the same group (intra) --> WHY WE HAVE THIS SUM????
+                                   - mp_gather : interface inside module mp (mp.f90)
+                                        - there is a CudaSynchronize and then a MPI_GATHER --> so the data from each process has always the same size!!
+                                        - the gather is applied for the matrix hc!! 
+                                        - inter_comm : performed among processes independent and in different groups!!
+                                   - the ZGEMM, mp_sum and mp_gather are repeated for sc (overlap Matrix)
+                                   - we have a mp_type_free:
+                                        - deallocates resources allocated for an MPI data type !!!
+                                   - OPENACC :
+                                        - loop over a gang (warp):
+                                            !$acc loop gang
+                                        - !$acc parallel vector_length(64): 
+                                            - parallel region to be run on the device;
+                                            - vector_length(64) : sets the number of threads per gang --> they are like n. of threads per CUDA blocks 
+                                            - !$acc loop gang:
+                                                - the loop is parallelized and spread over diff. gangs
+                                                - !$acc loop vector:
+                                                    - loop is vectorized 
+                                   - hc and sc are 2 matrices: they are computed only on the lower part (probably)
+                                   - so with the CONJ operator, we write the data on the upper part as the Complex conjugate of the lower part
+                                   - THIS IS OBSERVABLE FROM THE ZGEMM, WHERE we have hc(1,n_start) (from 1 to the starting n??)
+                                   - this is done because H and S need to be Hermitian --> matrix representation is Hermitian:
+                                        - S = (S^T)*
+                                        - H = (H^T)*
+                                        - we need to assure they are still Hermitian after the computations without any error -->
+                                        - we overwrite part of the data!!
+                                   - INIT FINISHED
+                             
+
+                             - dev_memset : we set a matrix of zeros directly on the GPU in an optimized way
+                             - lrot : if true, the matrix has already been rotated
+                                - in this case it seems that vc is set to an identity matrix and the
+                                - the trial wavefunctions are used as is
+                                - is it introduced for compute efficiency?? 
+                                - if lrot == false, we have diagonalization --> WHY?? 
+                                - mp_bcast: the array of eigenvalues is broadcasted among the process in the communicator by the root process
+                             
+                             - ITERATIVE PART:
+                                - from row 306 to 670
+                                - HOW THE CODE FINDS THE ROOTS CONV AND NOT CONV BEFORE THE ITERATE LOOP??
+                                    - It is done at lines from 557 to 573
+                                - Loop to put the unconverged roots to come first and make them contiguoous in memory
+                                -  np = numb. of unconv. roots 
+                                - SO what we do is to pack all the roots not converged to have them contiguous in memory
+                                - Then we multiply only for these roots for the psi matrix (ZGEMM at line 354)
+                                    - WE ARE FINDING THE DIRECTION FOR THE SUBSPACE, BASED ON THE RESIDUAL DIRECTION
+                                    - TO DO SO, WE NEED hpsi, spsi, psi, -ewSpsi
+                                    - then we clean GARBAGE
+                                    - WE CALL g_psi_ptr to the new psi --> we do a preconditioning which takes into account the energy threshold for real G space !!!!
+                                - Then we normalize ew for numerical stability: lines 418 - 432
+                                - NORMALIZATION to expand the subspace!! : 439 - 448 --> psi then recomputed for the expanded space
+                                - ONCE that we have the new psi for the extended space, we call again hpsi and spsi to proceed with the reduced subspace and diagonalization for the current iteration !!!!
+                                - SO WE REPEAT IN A SIMILAR WAY THE PROCEDURE DONE DURING THE INIT, AND WE EVALUATE CONVERGENCE AT LINES FROM 558 TO 564!!!:
+                                - BUT ATTENTION!!:
+                                    - the reduced hpsi and spsi are computed considering only the notconverged added vectors in slice!!
+                                    - the diagnalization of the reduced Hamitonian is done through the function diaghg, that uses Cholevsky facorization!!!!
+
+
+                        27/07 :
+
+                        - omp_set_lock : Each of these routines has an effect equivalent to suspension of the task that is executing the routine until the specified lock is available
+
+                        - diaghg:
+                            - we need to create a script that implements the OpenACC Api for the batching and test it for general matrices
+                            - then we will implement it in the cegterg by defining the corresponding handler (in the interface) and by introducing diag_hg_batching
+                            - Handler with the diaghg interface:
+                                - laxlib_hi.h : The interface contains all the subroutines, that vary depending on the data type!!!
+                            - so in the cegterg we call the interface!!!
+                            - INTERFACES: it should allow to define the same subroutine, or function, for different data types for instance!!!
+                            - rdiag : diaghg for REAL version of matrix
+                                - LAPACK version - uses both DHEGV and DHEGVX
+                            - cdiag : diaghg for COMPLEX matrices
+                                - LAPACK version - uses both ZHEGV and ZHEGVX
+                            - IN both we have a subroutine for cpu case, one for gpu and one that seems parllelized
+                            - the Makefile in Laxlib calls laxlb_hi.h and the other handlers
+                            CDIAG (subroutine laxlib_cdiaghg_gpu) :
+                            - ILAENV : function of the LAPACK library that return tuning parameters and optimization of block sizes and configurations for linear algebra routines 
+                            - alleigenvalues = (m==n) :
+                                - means that it is true if the matrix is squared
+                            - ATTENTION!!: FOR THE GPU VERSION it seems that we use cuSOLVER !!!!!!
+                            - So probably the batched call is done on cuSOLVER!!!
+                            - The cuSolver handler is defined in laxlib_cusolver_handle_mod.f90 : the module is called : laxlib_cusolver_handles
+                            
+                              
+
+                        - init_k :
+                            - we have k sampling initialization!!!
+                            - norm of k+g 
+                            - kinetic energy array!!
+
+
+                       - HOW THE CURRENT MULTITHREADING WORKS?
+                            - the slicing, the batching of the data has been introduced by adding an index to:
+                                - subroutine cegterg
+                                - etc...
+                       - TO IMPLEMENT THE BATCHED KERNEL CALL FOR THE diaghg, WE INTRRODUCE THE BATCHED VERSION OF cuSOLVER in the gpu version of the subroutine: laxlib_cdiaghg_gpu (in cdiaghg.f90)
+                       - cusolverDnSsygvd_bufferSize : these functions calculate the size that is needed for buffer preallocation
+                       - S and D : single and double precision real valued
+                       - C and Z : single and double precision complex valued
+                       - !$cuf kernel do(2) : directive to tell the compiler to turn 2 nested loops into a GPU kernel
+                            - we add <<<*, *, 0, laxlib_cuda_stream>>> to run the nested loop in a cuda stream (laxlib_cuda_stream)
+                       - CuSolverDN : solve dense linear systems
+                       - cusolverDnCreate : initializes the cuSolverDN library
+                       - cusolverDnZhegvdx_bufferSize : calclulates the sizes needed for pre-allocated buffer
+                       - cusolverDnZhegvdx : computes all or selection of eigenvalues and/or eigenvectors of a symmetric Hermitian matrix nXn matrix pair (A,B)
+                            - it computes and solves the generalized eigenvalue problem!! So the problem with the presence of the overlap matrix S!!!
+                       - CUBLAS_FILL_MODE_UPPER: Upper triangle of A and B are stored
+                       - n : number of rows of A or B matrix
+                       - h_d : matrix A, of dimension lda*n
+                       - ldh : leading dimension of matrix A
+                       - s_d : matrix B, of dimension ldh*n
+                       - ldh : leading dimension of matrix B
+                       - vl, vu : WHY WE HAVE 0.0D to 0.0D ??
+                       - il, iu : 
+                       - h_meig : total number of eigenvalues found
+                       - e_d : DEVICE array of dimension n with the eigenvalues of A 
+                       - work_d : DEVICE array of size lwork (working space)
+                       - lwork : size of work
+                       - devInfo : check the success of the operation!
+                            - it is an output
+                    
+                       - AND THE BATCHED VERSION??
+                            - cusolverDnZheevjBatched :
+                                - IT SOLVES N MATRICES, BUT IT WORKS ONLY FOR THE STANDARD CASE --> WHEN THERE IS NOT AN OVERLAP MATRIX?!!
+                                - Parameters:
+                                    - handle: handle to cuSolver context
+                                    - jobz : option to compute eig. or also eigenvector
+                                    - uplo : which part of A to store (lower or upper triangular)
+                                    - n : number of rows or columns of the matrices Aj (they are considered all of the same dimension)
+                                    - A : DEVICE array of dimension lda*n*batchSize (numb. of threads, right??)
+                                    - lda : leading dimension of matrix corresonding to the single Aj
+                                    - W : DEVICE output array of size n*batchsize --> stores eigenvalues of single Aj
+                                    - work: DEVICE array of size lwork
+                                    - lwork: size of work
+                                    - info: OUTPUT
+                                    - params: parameters of Jacobi algorithm
+                                    - batchSize : number of matrices
+
+                                 - Problems:
+                                    - Cusolver Batched:
+                                        - works only for standard (not generalized case) --> some modifications are needed to make it work for the generalized case
+                                        - it requires an array of GPU pointers --> so it requires a iso_c_binding?? --> Fortran doesn't have a native way to pass a
+                                        - ATTENTION!!:
+                                            - to guarantee that every thread has its own ready matrices to be sent with the batch kernel call and that every thread has charged its own array on the 3D one, we can run, INSIDE A OpenMP THREAD, a omp_barrier:
+                                                - omp_barrier: 
+                                                    - when the thread get to a specific point, it needs to wait until all the other threads have reached that specific point!!!
+                                                    - it is a sort of broadcast in Open MPI ????
+                                                    - it is like a sinchronyzation!!!
+                                    
+                                    
+                                    30/07:
+                                    
+                                    - The choose of cusolverDnZheevjBatched REVEALD to be the right choice to proceed!!!
+                                    - The Batched version of the mathematical APIs of CUDA NVIDIA let to reduce the number of kernels
+                                    - THIS IS OUR GOAL!!!
+                                    - BECAUSE IN THIS WAY WE CAN REDUCE THE GPU TIME FOR THE PARTS OF THE CODE THAT NEED TO USE MATHEMATICAL LIBRARIES APIs!!!!!
+
+                                    - REMEMBER THAT GPUs ABSOLUTELY DON'T LIKE MANY KERNEL CALLS AND THAT THIS STATEMENT WAS TOLD BY THE NVIDIA
+                                      GUYS!!!!!
+                                    - REMEMBER THAT THE PROVIDED BATCHEDAPIS CORRESPOND TO THE STANDARD CASE (WITHOUT THE OVERLAP MATRIX S)
+                                    - FOR THE BATCHED CUSOLVER, WE NEED TO CHECK THE SYNCHRNIZATION, BECAUSE BEING MANAGED BY CUDA DOESN'T GUARANTEE THAT THERE IS A WAITING (THAT IS WHAT WE WANT TO IMPLEMENT!!!)
+
+                                    31/07/2026: 
+                                    - WE NEED to understand how the cuSolverBatched works:
+                                        - FIRST PROBLEM: What is the Handler and how is it defined in our code??
+                                            - it seems a sort of data structure, but it is not clear
+                                            - it is not clear how it is defined in our code
+                                            - in our code the handles are in the file laxlib_cusolver_handle_mod.f90 --> module laxlib_cusolver_handles
+                                            - PRINT * : used to print on screen !!!
+                                            - cusolverDnCreate():
+                                                - it initializes a pointer type to an opaque cuSolverDN context --> we need to call it before any library function --> DOES IT INITIALIZES THE HANDLE OBJECT???
+                                                - it gives, returns, the handle!!
+                                                - ATTENTION! : we define the handle as handle(:) in FOrtran when we have to define an array of handles --> each HANDLE CORRESPONDS TO A Stream!!!
+                                            - cusolverDnSetStream():
+                                                - after creating CUDA streams, we can set the streams to be used by each individual cuSolver library routine 
+                                                - we call it before calling the cuSolverDN routine
+                                            - remember that it is possible to use the cuSolver routines, that are part of the cuSolver, also 
+                                              without multiple streams (synchronous execution --> no concurrency??) 
+                                            - PROBLEM: in the code in cdiaghg, how is executed the copy of the arrays fom host to device??
+                                            - PROBLEM: what is the meaning of the global buffer in the cdiaghg code??
+                                            - ATTENTION!! : IT IS NOT NECESSARY TO EXPLICITLY COPY SCALAR VARIABLES FROM HOST TO DEVICE, RIGHT???
+                                            - ALLOCATION AND DEALLOCATION IN FORTRAN WITH INTENT(OU):
+                                                - when we pass an allocatable as intent(ou) to a subroutine, if the intent(out) has already been allocated before the call, the call will automatically deallocate the intent(ou) array --> the subroutine will allocate the allocatable inside itself and will return the output obviously not deallocated, otherwise it would not be usable in the calling stack
+                                            - We defined an hanlde also for the parameters to be defined for the Jacobi method applied
+                                              for the batched resolution of the eigenvalue problem through the Batched API
+                                       
+                                       - WARNING!!! :
+                                            - For the thesis of Nisha the code was compiled using the NVIDIA HPC SDK (NVHPC) 24.5 toolchain
+                                            - in Fortran code the PROGRAM doesn't want any column (:) !!
+                                            - Helper functions of the type bufferSize calculate the sizes needed for pre-allocated buffer
+
+
+- SINGLE DAVIDSON ITERATATION ON 1 K-POINT:
+    - short operations: 
+        - matrix multiplication
+        - subspace diagonalization
+        - preconditioning
+        - normalization
+
+
+PRESENTATION:
+    - DO NOT USE THE SITE FIGURES ANYMORE IN THE FUTURE!!!PRESENTATION:
+        - DO NOT USE THE SITE FIGURES ANYMORE IN THE FUTURE!!!!!
