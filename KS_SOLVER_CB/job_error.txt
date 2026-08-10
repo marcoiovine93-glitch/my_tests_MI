@@ -1,0 +1,10 @@
+/tmp/nvfortran-Of_c90rlPrgZ.o: In function `MAIN_':
+/leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test.f90:120: undefined reference to `cusolverdncreatesyevjinfo_'
+/leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test.f90:121: undefined reference to `cusolverdnxsyevjsettolerance_'
+/leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test.f90:122: undefined reference to `cusolverdnxsyevjsetmaxsweeps_'
+/leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test.f90:123: undefined reference to `cusolverdnxsyevjsetsorteig_'
+/leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test.f90:136: undefined reference to `cusolverdnzheevjbatched_buffersize_'
+/leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test.f90:142: undefined reference to `cusolverdnzheevjbatched_'
+/leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test.f90:152: undefined reference to `cusolverdndestroysyevjinfo_'
+pgacclnk: child process exit status 1: /usr/bin/ld
+srun: fatal: Can not execute ./script_diag
