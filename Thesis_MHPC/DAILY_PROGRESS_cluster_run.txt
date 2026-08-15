@@ -162,3 +162,91 @@ compile: nvfortran -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_c
 (nvidia-smi to check the GPU available)
 run: CUDA_MPS_PIPE_DIRECTORY=/tmp/nonexistent-mps-dir-marco ./script_diag
 
+compile multithread:
+nvfortran -Mpreprocess -mp -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_cusolver_batched_test_multithread.f90
+
+- Single kernel case for comparison with the batched routines of NVIDIA:
+    - FIRST ERROR: Segmentation fault --> it was due to the fact that the d_info and h_eig of the cusolverDnZhegvdx solver were defined as ARRAYS
+      and never allocated and to the fact that the solver needed them as scalars, not as arrays!!! --> if I don't allocate for an array, how 
+      is it possible to write data? --> The address is not specified, it doesn't exist
+    - SECOND ERROR: The eigenvalues are all null and the eigenvectors seem to be wrong
+        - SOLUTION:
+            - It is really important to check the number given by the STATUS (the output variable of the API call)
+            - if the number is 8, and the matrix is 6x6, it means that, for the overlap matrix, taken from the documentation:
+                "If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed." --> the factorization (THIS IS IMPORTANT) is done with Cholesky factorization method!!
+                - THE ERROR WAS REALLY BAD AND DUMB AND WAS DUE TO THE FACT THAT THE ELEMENTS OF THE DIAGONAL WERE NOT SET AS MATRIX ELEMENTS (WITH
+                  THE PROPER INDEX), BUT AS A SCALAR VALUE
+
+            - We want to compare the results given by the 2 approaches with a Bash script:
+            
+
+
+
+13/08:
+
+- Script for cholesky factorization batched test:
+    - ERROR: 
+        - NVFORTRAN-S-0148-Reference to derived type required 
+          (script_cholesky_batched_test.f90: 128)
+          NVFORTRAN-S-0038-Symbol, acc_deviceptr, has not been 
+          explicitly declared (script_cholesky_batched_test.f90: 1)
+          0 inform,   0 warnings,   2 severes, 0 fatal for 
+          script_cholesky
+            - REASON: the error was due to acc_deviceptr missing
+                      after the USE openacc line!!
+
+         - Cublas script error:
+            - script_cublas_batched_test.f90:160:6: error S0155: Could not resolve generic procedure 'cublaszgemmstridedbatched' 
+              CALL cublasZgemmStridedBatched(cublas_handle, &
+              script_cublas_batched_test.f90:160: Actual argument of type 'integer*4' is not compatible with dummy argument 'ctransa' 
+              in specific procedure:
+                    - there are 2 problems: 
+                        - the cublas expects the matrices passed as pointer to 2D arrays, so it is not correct to pass a single scalar: a(1,1,1)
+                        - the strides are passed as type long long : this means that we need to cast the integer stride as INT(a,8):
+                            - in Fortran, it corresponds to 8 byte (64 bit) integer, that's why we have the 8!!!
+                    - /usr/bin/ld: /tmp/nvfortranxwRggfk_zc5P2.o: in function `MAIN_':
+                      /home/marco/script_cublas_batched_test.f90:154:(.text+0x928): undefined reference to `__pgi_cublasCreate'
+                      /usr/bin/ld: /home/marco/script_cublas_batched_test.f90:160:(.text+0xa34): undefined reference to `zgemmstridedbatched_sethpm_'
+                      /usr/bin/ld: /home/marco/script_cublas_batched_test.f90:201:(.text+0x1158): undefined reference to `__pgi_cublasDestroy'
+                      pgacclnk: child process exit status 1: /usr/bin/ld
+                            - these are link errors!!! 
+                            - the compiling has an error:
+                                nvfortran -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_cublas script_cublas_batched_test.f90
+                            - the link to the library is not correct:
+                                nvfortran -acc=gpu -gpu=cc121 -cudalib=cublas -o script_cublas script_cublas_batched_test.f90
+
+        - Cublas cublasZtrsmBatched compiling issues : 
+            - script_cublas_triang_batched_test.f90:158: Actual argument of type 'double complex*8(:,:,:)' is not compatible with dummy argument 'a' in specific procedure:
+            integer*4 function ztrsmbatched_sethpm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchcount)
+            type(cublashandle) :: h
+        integer*4 :: side
+        integer*4 :: uplo
+        integer*4 :: trans
+        integer*4 :: diag
+        integer*4 :: m
+        integer*4 :: n
+        double complex*8 :: alpha
+        type(c_devptr), device :: a(*)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        integer*4 :: lda
+        type(c_devptr), device :: b(*)
+        integer*4 :: ldb
+        integer*4 :: batchcount
+       end function ztrsmbatched_sethpm
+        
+        - THE ERROR IS DUE TO THE FACT THAT THE ARRAYS a AND b must be ARRAYS OF POINTERS, NOT 3D CONTIGUOUS ARRAYS!!!
+        - So we need to consider arrays of pointers!!
+
+        - When compiling the triangular linear solver for not batched :
+            - script_cublas_triang_NObatched_test.f90:111:10: error S0155: Could not resolve generic procedure 'cublasztrsm' 
+              STATUS = cublasZtrsm(cublas_handle, CUBLAS_SIDE_LEFT, &
+            - SOLUTION: cublasZtrsm_v2 instead of cublasZtrsm:
+                - why this works?: because cublasZtrsm calls a generic interface and tries to match the arguments we passed with a specific 
+                  procedure managed by the interface;
+                  - the v2 version works because it skips the guessing part of the specific aligment with the arguments passed!!!
+                  - NOOOOO!!! It doesn't skip the part for checking the arguments, it skips the part of the overloading of the procedure
+                    --> this means that the compiler doesn't face the risk to do a call to the wrong overload (for example with single precision
+                    instead of double precision) --> it checks directly the name itself, without overload resolution
+                  - Overloading in Fortran:
+                        - it is the characteristic of a procedure or operator to be able to work with multiple types 
+

@@ -394,3 +394,234 @@ cegterg.f90 (ORIGINAL VERSION):
 PRESENTATION:
     - DO NOT USE THE SITE FIGURES ANYMORE IN THE FUTURE!!!PRESENTATION:
         - DO NOT USE THE SITE FIGURES ANYMORE IN THE FUTURE!!!!!
+
+
+
+05/08 :
+
+WARNING!!:
+- in some conditions it is preferable to have in OpenACC an enter data create() instead of enter data copyin()
+    - this makes possible to have a pointer to a specific location on the device instantiated that corresponds to the host data without
+      copying garbage data or values that are on the host!! 
+- after having called the cusolverBatched to perform the computations on the host, we need to update the host variables to make
+  the changes effective on the host (!$acc update host() )
+
+
+- MULTITHREADED VERSION OF THE SCRIPT:
+    - probably doesn't make any sense to introduce Cuda streams in the case of Batched calls!!!
+        - review clearly why!!!!
+    - CONSIDERING THAT WE DO A UNIQUE BATCH KERNEL CALL, WE DON'T NEED TO CREATE MULTIPLE HANDLES!!!
+    - WARNING!!!!
+        - after a OMP parallel region, only one thread survives!! The other threads are destroyed!!!
+        - so to make only one thread to send the kernel batched call I need to do it inside the OMP parallel region!!!
+        - but obviously we could do it also after the parallel omp region because after the region the threads are not there anymore
+          and we have a single thread!!
+    -!!!! Let's remember that the end do subtedly runs a omp barrier!!!
+    
+    - Difference between end host data and end data at the end of an acc region:
+        - end host data : it simply ends the temporary mapping from host variables to the corresponding device pointers (the device pointers are not 
+          exposed anymore)
+        - end data : the !$acc data manages the time for which the data on the GPU exists!!!! --> so end data copy back the variables declared 
+                     with copy AND IT DEALLOCATES device variables (memory)
+        - THE DIFFERENCE DEPENDS ESSENTIALLY BY THE FACT THAT "data" STANDS FOR A STRUCTURED DATA REGION, IN WHICH DATA IS AUTOMATICALLY
+          COPIED BACK FROM DEVICE TO HOST AND THE DEVICE VARIABLE ARE DEALLOCATED!!!
+        - So instead of run many copyin, one for each variable to be copied on the device, we can create a unique structured data region 
+          specifying at the beginning the host variables to be copied to the device or created and inside it define the host_data
+          to introduce the mapping from host variables to the corresponding device pointers!!
+        - But Warning!!!: to run the commands on openACC : update host() and exit data delete(), we can simply run: exit data copyout --> it does both the things in one!!!
+        - IN THIS WE CAN AVOID MEMORY LEAKS, THAT UNFORTUNATELY CANNOT BE INSPECTED WITH VALGRIND BECAUSE IT IS NOT INSTALLED ON THE MACHINE!!!
+        - REMEMBER THAT IN THE BATCHED CALL, d_w IS AN INTENT(OUT): THIS MEANS THAT it shoud NOT be necessary 
+        - copy : equivalent to: copyin --> copyout !!!
+
+        - OPenMP:
+            - How can I make the code to run with OpenMP enabled??
+                1) compile with -mp flag --> in this case we need a precompiler rows in the code, such as #if defined(_OPENMP)
+                    and we need to take into account the fact that probably we will need to add -Mpreprocess to compile command!!
+                2) set the number of threads or before the parallel region: omp_set_num_threads(num_k)
+                3) we can also set it in the environment: export OMP_NUM_THREADS=4
+            - error compilation: Label field of continuation line is not blank
+                - it is due to the fact that fortran code is intended as not free form Fortran or that there are the c-preprocessor directives without enabling them with -Mprocesses;
+                - we can overcome it also by removing the # preprocessor lines!!
+            - error compilation: Incorrect sequence of statements  : the use directives must be added before the implicit none !!! 
+
+            - so to compile the multithread version:
+            nvfortran -Mpreprocess -mp -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_cusolver_batched_test_multithread.f90
+
+        06/08 :
+        - Start of checks for modifying the handles:
+            - THEY SHOULD BE DEFINED IN : laxlib_cusolver_handle_mod.f90
+                - ATTENTION: here the CusolverDnHandle is defined as an array, but since we make a unique batched call, it has to be a scalar!
+                    - IS IT POSSIBLE TO CALL THE INITIALIZATION JUST PASSING A NUMBER OF THREADS EQUAL TO ONE????
+                    - the module contains many subroutines:
+                        - initialize_cusolver_handles : it allocates the handle array and intializes it; 
+                        - initialize_laxlib_cuda_stream : it sets the cuda stream equal to the stream in input 
+                        - finalize_cusolver_handles : calls cusolverDnDestroy(cusolver_handle(i)) to unitialize and deallocate the handles
+                        - get_cusolver_handle : used to get the thread corresponding to a specific thread
+                        - get_cusolver_initialized : checks if the handle corresponding to a thread has been initialized 
+                        - set_laxlib_cuda_stream : sets the current cuda stream equal to the scalar value in input
+                - SHOULD WE NEGLECT THE CUDA STREAMS AND KEEP ONLY REFERENCES TO OPENMP??
+                - PROBLEM:
+                    - the not batched call is able to consider only the first nvec eigenvalues and eigenvectors and this number is given in input
+                    - the problem is that the batched call is not able to do this --> it computes alla the eigenvalues and eigenvectors
+                        - so the batched calls make sense if the further computations done and not needed, are related to small matrices!!
+                    - so we need a work around!!
+                    - ATTENTION!! : Since the batched call modifies the 3d matrix in input, we need to store it properly and to update it after 
+                                    the computation to come back to the original values!!
+                    - _GLOBAL_BUFFER : this precompiler command indicates that there is probably a module where some arrays are properly allocated
+                                        - so if it is active, we can define them in the routine just as pointers?? --> without the need to allocate
+                                        them --> so we can save space!!!!
+                    - WARNING!!!! : THE LOGIC WHICH STATES THAT THE NVIDIA routine call is acting subscribing the Hamiltonian and the Overlap 
+                                    matrices given in input, is valid also for the single kernel routines, not only for the Batched one!!!
+                                    The logic seems quite similar!!!
+
+                                    - rigo 202 del cegterg.f90 --> THIS IS REALLY IMPORTANT, BECAUSE IT PROVES THAT nvecx IS ALREADY
+                                      A BIGGER ARRAY????
+                                    mantenere gli stream!!!1 --> poi vediamo!i!1 --> KEEP THE STREAM LOGIC AS IT IS!!!
+
+                                    - GLOBAL_BUFFER : The logics triggered by the precompiler directives to this buffer are not used anymore
+                                    
+                                    - ATTRIBUTES( DEVICE )   :: h_bkp_d, s_bkp_d  : this means that the variables are device variables, not host variables --> the variables are defined and allocated on the GPU (device) rather than on the CPU ???
+                                    - ATTRIBUTES(PINNED) :: work, iwork, rwork, v_h, e_h : THIS MEANS THAT THE VARIABLES ARE ALLOCATED IN page/locked host memory --> it lets Cuda Runtime to transfer more efficiently data from host to device (and viceversa) !!
+                                    - dev is taken from device_fbuff_m --> we take dev_buf from the dev struct and pin_buf from the pin struct!!!
+                                        - PROBLEM !!!! : I DON'T FIND THE MODULE : device_fbuff_m
+                                        - NOOOOOOOOOO!!!!!!!!!! WARNING!!: THE DEV AND PIN ARE TAKEN ONLY WHEN WE DEFINE THE GLOBAL_BUFFER
+                                        - SINCE THE GLOBAL_BUFFER WAS DEPRECATED, WE DON'T NEED TO WORRY ABOUT IT!!!!
+                                    - We define the cusolverDnSyevjInfo variable only inside a #if defined(__CUDA) block !!! 
+                                    - #if defined __GPU_MPI :
+                                        - THis should mean that MPI is directly exposed to CUDA runtime, right??
+                                        - NOT EXACTLY: IT MEANS THAT we have a CUDA aware support for MPI --> the MPI library can send and receive
+                                          GPU buffers directly, without the need to stage the buffers into the host memory 
+                                            - This means that OpenMPI is able to detect the pointer to the buffer as a device pointer -->
+                                              This can happen if we have a UNFIED VIRTUAL ADDRESSING
+                                    - probably we will need to pass as an argument to cdiaghg, and set it properly in the subroutine, not nvecx (corresponding to the argument defined as m in the subroutine) but an array with the m values corresponding to each k point!!
+                                    - !$cuf kernel do(3) <<<*,*,0,laxlib_cuda_stream>>> : 
+                                        - <<<*,*,0,laxlib_cuda_stream>>> : the first 2 arguments indicate the num. of blocks and of threads per block
+                                            - in this case is the compiler to choose the blocks and threads!
+                                            - 0 : 0 bytes of dynamically allocated shared memory
+                                            - laxlib_cuda_stream : kernel CUDA in which the kernel is run!!!
+                                        - !$cuf : tells the NVIDIA compiler that it is a CUDA Fortran directive!!!
+                                        - kernel do(3) : take the next 3 nested loops and executes the iterations as a GPU kernel parallelized!
+                                        - vc : WARNING!!! --> in the current cdiaghg_gpu, the GPU NVIDIA cusolver routine computes the eigenvalues and the eigenvectors based on m (DESPITE THE FACT THAT FROM THE DOCUMENTATION m IS NOT THE NUMBER OF DESIRED EIGENVALUES) --> SO ONLY THE INDICES WHICH WE ARE INTERESTED IN ARE THE ONES FOR WHICH WE HAVE THE UPDATE OF THE vc ARRAY!! (the array of the eigenvectors!)
+                                        - WARNING!!! : INSIDE THE NEW CDIAGHG_GPU SUBROUTINE we need to order the eigenvalues and eigenvectors!!
+
+                                        - ATTENTION!!! 
+                                            - REGARDING THE DIMENSIONS OF THE MATRICES, we set the reduced Hamiltonian, the reduced overlap matrix
+                                              and the matrix of the eigenvectors on the host, with dimension nvecx x nvecx (the maximum dimension)
+                                              reachable throughout the iterative process that makes the subspace to grow and grow...
+                                            - Despite this, we pass the entire matrices in the diaghg call --> but in the diaghg subroutine we 
+                                              consider only a dimension equal to nvecx x nbase !!!!
+                                            - PROBLEM: we need to find a way to implement the generalized case (overlap matrix B not symmetrical)
+                                                - first of all: syevj / heevj are Hermitian solvers --> so we need to have a matrix, arranging A and B, that needs tobe Hermitian/symmetrical
+                                                - this is important because we could, as naive trial, to set B^(-1)*A*x = lambda*x
+                                                - but this doesn't guarantee that the matrix will be still Hermitian!!
+                                                - probably we need to use cusolverDnZpotrfBatched routine to do Cholesky factorization and then:
+                                                - we do : L^(-1)*hc with cusolverDnZheevjBatched(LEFT) and hc'*L^T(-1) with 
+                                                          cusolverDnZheevjBatched(RIGHT)
+                                                - Then we can send A_tilde to the Batched api for cusolver eigenvalue problem -->
+                                                  REMEMBER that the eigenvectors need to be converted to the right one, because we converted them
+                                                  within the Cholesky factorization!
+                                                    - to avoid doing this, probably we will need to pass to the diaghg the sc, and perform
+                                                      inside the subroutine all the batched kernel calls!!!
+                                                    - THerefore, we pass to the diaghg the nbase got after the proper padding
+                                                    - we set a unique lda for all the batched calls : lda = nvecx
+                                                  - cublasZgemmBatched and cusolverDnZpotrfBatched :
+                                                        - We don't have a 3 dimensional array, we have an array of pointers
+                                                            - each pointer points to an array of dimension lda*n --> so we need to allocate the array of pointers on the device 
+                                                            - ATTENTION!!! : In Fortran the Allocacatbles, for some versions, are authomatically deallocated (or for all the versions??)
+
+                                                  - PROBLEM:
+                                                        - Remember that we need to start from CUDA c/c++ implementation to understand the potrfBatched API call;
+                                                        - the corresponding OpenACC managing is a bit different!!!!
+                                                            - BECAUSE in OpenACC we don't directly manage the cudaMalloc for allocation on the 
+                                                              device!!!
+                                                            - WE NEED to absolutely understand the difference between the addresses and the pointers
+                                                              on device and from host to device and viceversa!!!
+                                                            - We will do it with acc_devptr, that is a OpenACC directive:
+                                                                - PROBLEM: we started to implement the script with a binding done with TYPE(C_PTR)
+                                                                - but it doesn't work with acc_devptr : why? BECAUSE it gives in output a 
+                                                                  DEVICE POINTER mapped to a host address!!
+                                                                  - MEANING: 
+                                                                        - this doesn't mean that the returned pointer is a host pointer
+                                                                        - it means that the output is a device pointer corresponding to the 
+                                                                          host address given in input and whose variable has been copied in 
+                                                                          with OpenACC!!!
+                                                                        - more precisely:
+                                                                          It means that the output is a device pointer corresponding to the device 
+                                                                          storage associated by OpenACC with the host address given as input, 
+                                                                          provided that the host object has an active OpenACC device mapping 
+                                                                          (e.g. because it was copied in).
+                                                                        - BUT IN FORTRAN WE PASS THE VARIABLE!!
+                                                                            - because the sequence is the following:
+                                                                                1) we pass the host variable/object;
+                                                                                2) OpenACC retrieves the host address and checks if there is a 
+                                                                                   device mapping;
+                                                                                3) The device mapping consists in the already done copy in of the
+                                                                                   host object on the device: this means that a memory space
+                                                                                   (storage) has been allocated and populated on the device 
+                                                                                   corresponding to the host and that a device pointer to this 
+                                                                                   space exists!!
+                                                                                4) So acc_devieptr gives in output this device pointer!!!
+                                                                                   the host address
+
+
+                                                    - Problem with the output of cholesky batched:
+                                                        - the input matrix is not hermitian!!!
+                                                        - Hermitian matrix:
+                                                            - complex squared matrix with so that it is equal to its conjugate transpose
+                                                        - why Cholesky decomposition needs a Hermitian matrix??
+                                                            - because it is the condition to  make matrix A = L*L^T !!!
+                                                        - IT HAS TO BE ALSO POSITIVE DEFINITE!!!
+                                                    - Compare between batched api and not batched : difference around 1e-16 : SUCCESS
+
+                                            - cuBLAS: 
+                                                - we have 2 possible Batched APIs: cublasZgemmBatched and cublasZgemmStridedBatched
+                                                    - for both of them the matrices must have the same dimensions
+                                                    - cublasZgemmBatched : the addresses of the matrices are read from array of pointers
+                                                    - cublasZgemmStridedBatched : the matrices are passed in a contiguous block of memory  
+                                                                                  a 3D array and the access to each matrix is done by defining
+                                                                                  the stride as the number of elements of a single matrix!!
+                                                    - transa in the cuBLAS API tells the routine what form of matrix A to use: unchanged, 
+                                                      transposed, or conjugate-transposed: CUBLAS_OP_N, CUBLAS_OP_T, CUBLAS_OP_C
+
+
+                                                - GENERAL CONCEPT:
+                                                    - The stride, defined also for cuSOLVER for diagonalization LAPACK as leading dimension, 
+                                                      represents the jump in memory needed to pass from a matrix to the next one, when accessing
+                                                      a contiguous block of memory storing all the matrices;
+                                                    - in the case of LAPACK, probably it takes into account only the the leading dimension!
+                                                        - WHY??? : because probably it has to know what is the current column!!! 
+                                                    - in cuSolver, essentially we define the leading dimension like a stride an its purpose
+                                                      is to access the data in the proper way: ho much I need to slice/jump in memory to get
+                                                      the next array/matrix? --> this is different from the computation, that is still performed
+                                                      on a square matrix of dimension n x n (in our case, nbase x nbase)
+                                                    - in cublas, the concept is similar:
+                                                        - we define the rows and columns of the input and output matrices
+                                                        - but at the same time we define for each of them a leading dimension and also a stride
+                                                        - in this case the stride is not the number of rows, but is the number of elements
+                                                          between one matrix and the next one
+                                                        - it is probably defined because the leading dim. is not sufficient (we don't have 
+                                                          necessarily square matrices)
+                                                        - in general, the concept od stride, or leading dimension, is defined to take into 
+                                                          account how data is stored in memory to take into account the fact that the computation
+                                                          should not be done necessarily on the whole array given!!!
+                                                
+                                                - GEMM : General Matrix Multiplication !!!
+                                                - WARNING!! PROBABLY IT IS BETTER TO USE cublasZtrsmBatched instead of cublasZgemmStridedBatched!!
+                                                        - In our case we need to multiply for triangular matrices!!
+                                                        - cublasZtrsmBatched : it performs the computation of the solution of a linear system
+                                                            - CUBLAS_DIAG_NON_UNIT : indicates that the element of the diagonal are not unit andthat 
+                                                              they should be accessed!
+                                                            - in this case the device pointers exposed and passed to the routine are not related
+                                                              to contiguous memory --> we pass arrays of pointers corresponding to each matrix!!
+                                                            - it can be applied only to an A matrix upper triangular or lower triangular!!
+                                                            - CUBLAS_FILL_MODE_LOWER : cuBlas reads only the diagonal and lower triangle!!!
+                                                           
+
+
+    - Contiguous and not contiguous arrays on GPU:  
+        - in Fortran, 3D arrays are contiguous in memory!!!
+                                        
+                                        - The Z in the APIs of cublas and cusolver is referring to the complex type with Double Precision !!!
+
+    - Overloading in Fortran:
+        - it is the characteristic of a procedure or operator to be ableto work with multiple types   
