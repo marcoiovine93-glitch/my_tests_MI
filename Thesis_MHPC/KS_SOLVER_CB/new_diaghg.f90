@@ -1,8 +1,8 @@
-!
+
 #define ZERO ( 0.D0, 0.D0 )
 #define ONE  ( 1.D0, 0.D0 )
 
-SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp, intra_bgrp_comm)
+SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bgrp, root_bgrp, intra_bgrp_comm)
   !----------------------------------------------------------------------------
   !!
   !! Called by diaghg interface.
@@ -40,19 +40,28 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
   IMPLICIT NONE
   include 'laxlib_kinds.fh'
   !
+  !!!! M.Iovine - nbase is set equal to the maximum value among the 
+  !!!! k-pints (threads)
   INTEGER, INTENT(IN) :: n
   !! dimension of the matrix to be diagonalized
+  !!!! number of desired root eigenstates for each k point is the same
+  !!!! for each k-point!
   INTEGER, INTENT(IN) :: m
   !! number of eigenstates to be calculated
+  !!!! M.Iovine - Batched change:
+  INTEGER, INTENT(IN) :: n_k  
+  !!!!
   INTEGER, INTENT(IN) :: ldh
   !! leading dimension of h, as declared in the calling pgm unit
   COMPLEX(DP), INTENT(INOUT) :: h_d(ldh,n)
   !! matrix to be diagonalized, allocated on the GPU
   COMPLEX(DP), INTENT(INOUT) :: s_d(ldh,n)
   !! overlap matrix, allocated on the GPU
-  REAL(DP), INTENT(OUT) :: e_d(n)
+  !!!! M.Iovine - Batched change:
+  REAL(DP), INTENT(OUT) :: e_d(n,n_k)
+  !!!!
   !! eigenvalues, , allocated on the GPU
-  COMPLEX(DP),  INTENT(OUT) :: v_d(ldh,n)
+  COMPLEX(DP),  INTENT(OUT) :: v_d(ldh,n,nk) !!!! M.Iovine - v_d becomes a 3D array!!!
   !! eigenvectors (column-wise), , allocated on the GPU
   INTEGER,  INTENT(IN)  :: me_bgrp
   !! index of the processor within a band group
@@ -73,8 +82,8 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
   REAL(DP), VARTYPE    :: rwork(:)
   COMPLEX(DP), VARTYPE :: work(:)
   !
-  COMPLEX(DP), VARTYPE :: v_h(:,:)
-  REAL(DP), VARTYPE    :: e_h(:)
+  COMPLEX(DP), VARTYPE :: v_h(:,:,:) !!!! M.Iovine : added a dimension to the array
+  REAL(DP), VARTYPE    :: e_h(:,:)
 #if (! defined(__USE_GLOBAL_BUFFER)) && defined(__CUDA)
   ATTRIBUTES( PINNED ) :: work, iwork, rwork, v_h, e_h
 #endif
@@ -82,22 +91,29 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
   INTEGER              :: lwork_d, lrwork_d, liwork, lrwork
   REAL(DP), VARTYPE    :: rwork_d(:)
   COMPLEX(DP), VARTYPE :: work_d(:)
+  !!!! M.Iovine - We add a line to define the info array corresponding to the Batched routine of the Cusolver NVIDIA library:
+  INTEGER, ALLOCATABLE :: d_info(:)
   ! various work space
   !
   ! Temp arrays to save H and S.
   REAL(DP), VARTYPE    :: h_diag_d(:), s_diag_d(:)
 #if defined(__CUDA)
-  ATTRIBUTES( DEVICE ) :: work_d, rwork_d, h_diag_d, s_diag_d
+  ATTRIBUTES( DEVICE ) :: work_d, rwork_d, h_diag_d, s_diag_d, d_info !!!! M.Iovine - added d_info to the device attributes
   INTEGER                      :: devInfo_d, h_meig
   ATTRIBUTES( DEVICE )         :: devInfo_d
   TYPE(cusolverDnHandle), SAVE :: cuSolverHandle
   LOGICAL, SAVE                :: cuSolverInitialized = .FALSE.
   !
-  COMPLEX(DP), VARTYPE   :: h_bkp_d(:,:), s_bkp_d(:,:)
+  !! Device arrays to save the old values of the Hamiltonian and Overlap matrices!!
+  COMPLEX(DP), VARTYPE   :: h_bkp_d(:,:,:), s_bkp_d(:,:,:) !!!! M.Iovine : The array to store the old values of the Hamiltonian before appying the 
   ATTRIBUTES( DEVICE )   :: h_bkp_d, s_bkp_d
+
+  !!!! M.Iovine - We instantiate a cusolverDnSyevjInfo variable that is needed for the Batched routine provided by NVIDIA:
+  TYPE(cusolverDnSyevjInfo) :: syevj_params
 #endif
-  INTEGER :: i, j
+  INTEGER :: i, j, k !!!! M.IOvine - added index k for the third dimension of the arrays
 #undef VARTYPE
+
   !
   !
   !
@@ -113,7 +129,7 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
 #if defined(__CUDA)
 
 #if ! defined(__USE_GLOBAL_BUFFER)
-      ALLOCATE(h_bkp_d(n,n), s_bkp_d(n,n), STAT = info)
+      ALLOCATE(h_bkp_d(n,n,n_k), s_bkp_d(n,n,n_k), STAT = info) !!!! M.Iovine : h_bkp_d is a 3 dimensional array now!!
       IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate h_bkp_d or s_bkp_d ', ABS( info ) )
 #else
       CALL dev%lock_buffer( h_bkp_d,  (/ n, n /), info )
@@ -122,11 +138,13 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
       IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate s_bkp_d ', ABS( info ) )
 #endif
       !
-!$cuf kernel do(2) <<<*,*,0,laxlib_cuda_stream>>>
+!$cuf kernel do(3) <<<*,*,0,laxlib_cuda_stream>>> !!!! M.Iovine - Modified the loops nested from 2 to 3 --> so we changed kernel do(2) to kenel do(3) :
       DO j=1,n
          DO i=1,n
-            h_bkp_d(i,j) = h_d(i,j)
-            s_bkp_d(i,j) = s_d(i,j)
+            DO k=1,n_k
+                h_bkp_d(i,j,k) = h_d(i,j,k)
+                s_bkp_d(i,j,k) = s_d(i,j,k)
+            ENDDO
          ENDDO
       ENDDO
       !
@@ -141,28 +159,72 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
          IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnSetStream',  ABS( info ) )   
       ENDIF
       !
+      !!!! M.Iovine - we define the parameters for the Jacobi algorithm corresponding to the diagonalization done through the batched cuSolver routine:
+      info = cusolverDnCreateSyevjInfo(syevj_params)
+      IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnCreateSyevjInfo',  ABS( info ) )
+      info = cusolverDnXsyevjSetTolerance(syevj_params, 0.D0) !! The tolerance is set to the default value (0)
+      IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnXsyevjSetTolerance',  ABS( info ) )
+      info = cusolverDnXsyevjSetMaxSweeps(syevj_params, 100) !!! The maximum swe    eps is the default value (100)
+      IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnXsyevjSetMaxSweeps',  ABS( info ) )
+      info = cusolverDnXsyevjSetSortEig(syevj_params, 0) !!!! Disable the sortin    g of the eigenvalues!!
+      IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnXsyevjSetSortEig',  ABS( info ) )
+      !!!!
+
       cuSolverHandle = cusolver_handle(cusolver_thread)
-      info = cusolverDnZhegvdx_bufferSize(cuSolverHandle, CUSOLVER_EIG_TYPE_1, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I, CUBLAS_FILL_MODE_UPPER, &
-                                               n, h_d, ldh, s_d, ldh, 0.D0, 0.D0, 1, m, h_meig, e_d, lwork_d)
-      IF( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', ' cusolverDnZhegvdx_bufferSize failed ', ABS( info ) )
+      !!!! M.Iovine - We change the routine from the single kernel call to the batched routine of NVIDIA Cusolver:
+      info = cusolverDnZheevjBatched_bufferSize(cuSolverHandle, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, &
+                                               n, h_d, ldh, e_d, lwork_d, syevj_params, n_k)
+      IF( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', ' cusolverDnZheevjBatched failed ', ABS( info ) )
       !
 #if ! defined(__USE_GLOBAL_BUFFER)
       ALLOCATE(work_d(1*lwork_d), STAT = info)
       IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate work_d ', ABS( info ) )
+      !!!! M.Iovine - We allocate the array d_info and check if it's successful :
+      ALLOCATE(d_info(n_k), STAT=info)
+      IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate d_info ', ABS( info ) )
 #else
       CALL dev%lock_buffer( work_d,  lwork_d, info )
       IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate work_d ', ABS( info ) )
 #endif
       !
-      info = cusolverDnZhegvdx(cuSolverHandle, CUSOLVER_EIG_TYPE_1, CUSOLVER_EIG_MODE_VECTOR, CUSOLVER_EIG_RANGE_I, CUBLAS_FILL_MODE_UPPER, &
-                                  n, h_d, ldh, s_d, ldh, 0.D0, 0.D0, 1, m, h_meig, e_d, work_d, lwork, devInfo_d)
-      IF( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', ' cusolverDnZhegvdx failed ', ABS( info ) )
-!$cuf kernel do(2) <<<*,*,0,laxlib_cuda_stream>>>
-      DO j=1,n
-         DO i=1,n
-            IF(j <= m) v_d(i,j) = h_d(i,j)
-            h_d(i,j) = h_bkp_d(i,j)
-            s_d(i,j) = s_bkp_d(i,j)
+      !!!! M.Iovine - We change the routine from the single kernel call to the batched routine of NVIDIA Cusolver:
+      info = cusolverDnZheevjBatched(cuSolverHandle, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, &
+      n, h_d, ldh, e_d, d_work, lwork_d, d_info(1), syevj_params, n_k)
+      IF( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', ' cusolverDnZheevjBatched failed ', ABS( info ) )
+    
+    !!!! M.Iovine - We need to order in acending way the eigenvalues
+    !!!! and the corresponding eigenvectors:
+    do ik = 1, n_k
+        do b = 1, n-1
+            ind_min = b
+            do k = b,n
+                if (e_d(k, ik) .le. e_d(ind_min, ik) then
+                    ind_min = k
+                end if
+            end do
+            minim = e_d(ind_min,ik)
+            e_d(ind_min,ik) = e_d(b,ik)
+            e_d(b,ik) = minim
+            !!! We swap also the columns with indices equal to the
+            !!! eigenvalues ones in order to reorder also the 
+            !!! eigenvectors array!
+            min_col_arr = h_d(:,ind_min,ik)
+            h_d(:,ind_min,ik) = h_d(:,b,ik)
+            h_d(:,b,ik) = min_col_arr
+        end do
+    end do
+
+
+
+!!!! M.Iovine - Modified the loops nested from 2 to 3 --> so we changed kernel do(2) to kernel do(3) :
+!$cuf kernel do(3) <<<*,*,0,laxlib_cuda_stream>>>
+      DO k=1,n_k
+         DO j=1,n
+            DO i=1,n
+                IF(j <= m) v_d(i,j,k) = h_d(i,j,k) !!!!M.Iovine - the array becomes 3D and also m is an array because 
+                h_d(i,j,k) = h_bkp_d(i,j,k)
+                s_d(i,j,k) = s_bkp_d(i,j,k)
+            ENDDO
          ENDDO
       ENDDO
       !
@@ -175,6 +237,7 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
 #if ! defined(__USE_GLOBAL_BUFFER)
       DEALLOCATE(work_d)
       DEALLOCATE(h_bkp_d, s_bkp_d)
+      DEALLOCATE(d_info) !!!! M.Iovine - we deallocate d_info
 #else
       CALL dev%release_buffer( work_d,  info )
       CALL dev%release_buffer( h_bkp_d, info )
@@ -196,33 +259,41 @@ SUBROUTINE laxlib_cdiaghg_gpu( n, m, h_d, s_d, ldh, e_d, v_d, me_bgrp, root_bgrp
   info = cudaDeviceSynchronize()
   IF ( info /= 0 ) &
         CALL lax_error__( 'cdiaghg', 'error synchronizing device (first)', ABS( info ) )
-  CALL MPI_BCAST( e_d, n, MPI_DOUBLE_PRECISION, root_bgrp, intra_bgrp_comm, info )
-  IF ( info /= 0 ) &
-        CALL lax_error__( 'cdiaghg', 'error broadcasting array e_d', ABS( info ) )
-  CALL MPI_BCAST( v_d, ldh*m, MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
-  IF ( info /= 0 ) &
-        CALL lax_error__( 'cdiaghg', 'error broadcasting array v_d', ABS( info ) )
-  info = cudaDeviceSynchronize() ! this is probably redundant...
-  IF ( info /= 0 ) &
-        CALL lax_error__( 'cdiaghg', 'error synchronizing device (second)', ABS( info ) )
+  !!!! M.Iovine - We add a loop to take into account the k-points of the batch :
+  DO k=1,n_k 
+    CALL MPI_BCAST( e_d(:,k), n, MPI_DOUBLE_PRECISION, root_bgrp, intra_bgrp_comm, info )
+    IF ( info /= 0 ) &
+            CALL lax_error__( 'cdiaghg', 'error broadcasting array e_d', ABS( info ) )
+    CALL MPI_BCAST( v_d(:,:,k), ldh*m, MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
+    IF ( info /= 0 ) &
+            CALL lax_error__( 'cdiaghg', 'error broadcasting array v_d', ABS( info ) )
+    info = cudaDeviceSynchronize() ! this is probably redundant...
+    IF ( info /= 0 ) &
+            CALL lax_error__( 'cdiaghg', 'error synchronizing device (second)', ABS( info ) )
+  END DO  
 #else
-  ALLOCATE(e_h(n), v_h(ldh,m))
-  e_h(1:n) = e_d(1:n)
-  v_h(1:ldh, 1:m) = v_d(1:ldh, 1:m)
-  CALL MPI_BCAST( e_h, n, MPI_DOUBLE_PRECISION, root_bgrp, intra_bgrp_comm, info )
-  IF ( info /= 0 ) &
-        CALL lax_error__( 'cdiaghg', 'error broadcasting array e_d', ABS( info ) )
-  CALL MPI_BCAST( v_h, ldh*m, MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
-  IF ( info /= 0 ) &
-        CALL lax_error__( 'cdiaghg', 'error broadcasting array v_d', ABS( info ) )
-  e_d(1:n) = e_h(1:n)
-  v_d(1:ldh, 1:m) = v_h(1:ldh, 1:m)
-  DEALLOCATE(e_h, v_h)
+  !!!! M.Iovine - We add a loop to take into account the k-points of th batch :
+  ALLOCATE(e_h(n, n_k), v_h(ldh, m, n_k))
+  DO k=1,n_k
+    e_h(1:n, k) = e_d(1:n, k)
+    v_h(1:ldh, 1:m, k) = v_d(1:ldh, 1:m, k)
+    CALL MPI_BCAST( e_h(:,k), n, MPI_DOUBLE_PRECISION, root_bgrp, intra_bgrp_comm, info )
+    IF ( info /= 0 ) &
+            CALL lax_error__( 'cdiaghg', 'error broadcasting array e_d', ABS( info ) )
+    CALL MPI_BCAST( v_h(:,:,k), ldh*m, MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
+    IF ( info /= 0 ) &
+            CALL lax_error__( 'cdiaghg', 'error broadcasting array v_d', ABS( info ) )
+    e_d(1:n, k) = e_h(1:n, k)
+    v_d(1:ldh, 1:m, k) = v_h(1:ldh, 1:m, k)
+    DEALLOCATE(e_h, v_h)
+  END DO
 #endif
 #endif
   !
   CALL stop_clock_gpu( 'cdiaghg' )
   !
+  !!!!M.Iovine - we deallocate m(:) :
+  DEALLOCATE(m)
   RETURN
   !
 END SUBROUTINE laxlib_cdiaghg_gpu
