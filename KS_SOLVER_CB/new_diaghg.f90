@@ -1,4 +1,4 @@
-!
+
 #define ZERO ( 0.D0, 0.D0 )
 #define ONE  ( 1.D0, 0.D0 )
 
@@ -40,11 +40,13 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
   IMPLICIT NONE
   include 'laxlib_kinds.fh'
   !
+  !!!! M.Iovine - nbase is set equal to the maximum value among the 
+  !!!! k-pints (threads)
   INTEGER, INTENT(IN) :: n
   !! dimension of the matrix to be diagonalized
-  !!!! M.Iovine - We set the eigenstates as an array because we have a 
-  !!!! number of eigenstates for each k point!!!
-  INTEGER, ALLOCATABLE, INTENT(IN) :: m(:)
+  !!!! number of desired root eigenstates for each k point is the same
+  !!!! for each k-point!
+  INTEGER, INTENT(IN) :: m
   !! number of eigenstates to be calculated
   !!!! M.Iovine - Batched change:
   INTEGER, INTENT(IN) :: n_k  
@@ -103,7 +105,7 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
   LOGICAL, SAVE                :: cuSolverInitialized = .FALSE.
   !
   !! Device arrays to save the old values of the Hamiltonian and Overlap matrices!!
-  COMPLEX(DP), VARTYPE   :: h_bkp_d(:,:,:), s_bkp_d(:,:) !!!! M.Iovine : The array to store the old values of the Hamiltonian before appying the 
+  COMPLEX(DP), VARTYPE   :: h_bkp_d(:,:,:), s_bkp_d(:,:,:) !!!! M.Iovine : The array to store the old values of the Hamiltonian before appying the 
   ATTRIBUTES( DEVICE )   :: h_bkp_d, s_bkp_d
 
   !!!! M.Iovine - We instantiate a cusolverDnSyevjInfo variable that is needed for the Batched routine provided by NVIDIA:
@@ -112,8 +114,6 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
   INTEGER :: i, j, k !!!! M.IOvine - added index k for the third dimension of the arrays
 #undef VARTYPE
 
-  !!!!M.Iovine - we allocate m(:) :
-  ALLOCATE(m(n_k))
   !
   !
   !
@@ -129,7 +129,7 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
 #if defined(__CUDA)
 
 #if ! defined(__USE_GLOBAL_BUFFER)
-      ALLOCATE(h_bkp_d(n,n,n_k), s_bkp_d(n,n), STAT = info) !!!! M.Iovine : h_bkp_d is a 3 dimensional array now!!
+      ALLOCATE(h_bkp_d(n,n,n_k), s_bkp_d(n,n,n_k), STAT = info) !!!! M.Iovine : h_bkp_d is a 3 dimensional array now!!
       IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate h_bkp_d or s_bkp_d ', ABS( info ) )
 #else
       CALL dev%lock_buffer( h_bkp_d,  (/ n, n /), info )
@@ -143,7 +143,7 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
          DO i=1,n
             DO k=1,n_k
                 h_bkp_d(i,j,k) = h_d(i,j,k)
-                s_bkp_d(i,j) = s_d(i,j,k)
+                s_bkp_d(i,j,k) = s_d(i,j,k)
             ENDDO
          ENDDO
       ENDDO
@@ -191,12 +191,37 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
       info = cusolverDnZheevjBatched(cuSolverHandle, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, &
       n, h_d, ldh, e_d, d_work, lwork_d, d_info(1), syevj_params, n_k)
       IF( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', ' cusolverDnZheevjBatched failed ', ABS( info ) )
+    
+    !!!! M.Iovine - We need to order in acending way the eigenvalues
+    !!!! and the corresponding eigenvectors:
+    do ik = 1, n_k
+        do b = 1, n-1
+            ind_min = b
+            do k = b,n
+                if (e_d(k, ik) .le. e_d(ind_min, ik) then
+                    ind_min = k
+                end if
+            end do
+            minim = e_d(ind_min,ik)
+            e_d(ind_min,ik) = e_d(b,ik)
+            e_d(b,ik) = minim
+            !!! We swap also the columns with indices equal to the
+            !!! eigenvalues ones in order to reorder also the 
+            !!! eigenvectors array!
+            min_col_arr = h_d(:,ind_min,ik)
+            h_d(:,ind_min,ik) = h_d(:,b,ik)
+            h_d(:,b,ik) = min_col_arr
+        end do
+    end do
+
+
+
 !!!! M.Iovine - Modified the loops nested from 2 to 3 --> so we changed kernel do(2) to kernel do(3) :
 !$cuf kernel do(3) <<<*,*,0,laxlib_cuda_stream>>>
-      DO j=1,n
-         DO i=1,n
-            DO k=1,n_k
-                IF(j <= m(k)) v_d(i,j,k) = h_d(i,j,k) !!!!M.Iovine - the array becomes 3D and also m is an array because 
+      DO k=1,n_k
+         DO j=1,n
+            DO i=1,n
+                IF(j <= m) v_d(i,j,k) = h_d(i,j,k) !!!!M.Iovine - the array becomes 3D and also m is an array because 
                 h_d(i,j,k) = h_bkp_d(i,j,k)
                 s_d(i,j,k) = s_bkp_d(i,j,k)
             ENDDO
@@ -239,7 +264,7 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
     CALL MPI_BCAST( e_d(:,k), n, MPI_DOUBLE_PRECISION, root_bgrp, intra_bgrp_comm, info )
     IF ( info /= 0 ) &
             CALL lax_error__( 'cdiaghg', 'error broadcasting array e_d', ABS( info ) )
-    CALL MPI_BCAST( v_d(:,:,k), ldh*m(k), MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
+    CALL MPI_BCAST( v_d(:,:,k), ldh*m, MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
     IF ( info /= 0 ) &
             CALL lax_error__( 'cdiaghg', 'error broadcasting array v_d', ABS( info ) )
     info = cudaDeviceSynchronize() ! this is probably redundant...
@@ -248,18 +273,18 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
   END DO  
 #else
   !!!! M.Iovine - We add a loop to take into account the k-points of th batch :
-  ALLOCATE(e_h(n), v_h(ldh,m))
+  ALLOCATE(e_h(n, n_k), v_h(ldh, m, n_k))
   DO k=1,n_k
     e_h(1:n, k) = e_d(1:n, k)
-    v_h(1:ldh, 1:m(k), k) = v_d(1:ldh, 1:m(k), k)
+    v_h(1:ldh, 1:m, k) = v_d(1:ldh, 1:m, k)
     CALL MPI_BCAST( e_h(:,k), n, MPI_DOUBLE_PRECISION, root_bgrp, intra_bgrp_comm, info )
     IF ( info /= 0 ) &
             CALL lax_error__( 'cdiaghg', 'error broadcasting array e_d', ABS( info ) )
-    CALL MPI_BCAST( v_h(:,:,k), ldh*m(k), MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
+    CALL MPI_BCAST( v_h(:,:,k), ldh*m, MPI_DOUBLE_COMPLEX, root_bgrp, intra_bgrp_comm, info )
     IF ( info /= 0 ) &
             CALL lax_error__( 'cdiaghg', 'error broadcasting array v_d', ABS( info ) )
     e_d(1:n, k) = e_h(1:n, k)
-    v_d(1:ldh, 1:m(k), k) = v_h(1:ldh, 1:m(k), k)
+    v_d(1:ldh, 1:m, k) = v_h(1:ldh, 1:m, k)
     DEALLOCATE(e_h, v_h)
   END DO
 #endif

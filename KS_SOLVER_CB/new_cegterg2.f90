@@ -317,32 +317,50 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !$acc host_data use_device(hc, sc, vc, ew)
      CALL start_clock( 'cegterg:diag' )
      !call omp_set_lock(cegterg_locker) !!!! M.Iovine - We comment the line
-     !!!! M.IOvine - Padding for 3D arrays: 
+     !!!! M.IOvine - Changes for 3D arrays: 
      nbase_batched(i_batch) = nbase !!!M.Iovine : we store the dimension for the current thread
-     nvecx_batched(i_batch) = nvec !!!M.Iovine : we store the dimension for the current thread
-     nvec_batched(i_batch) = nvec !!M.Iovine - This is the m value, the number of desired eigenvalue, for each i_batch
+     hc_batched(:,:,i_batch) = hc
+     sc_batched(:,:,i_batch) = sc
+     vc_batched(:,:,i_batch) = vc
      !$omp barrier
      
      !!! M.Iovine : we find the maximum for nbase_batched and nvecx_bat          ched :
-     !!! We allocate only on the master thread
-     !$omp master
      nbase_max = maxval(nbase_batched)
-     nvecx_max = maxval(nvecx_batched)
-     ALLOCATE(hc_batched(nbase_max,n_k))
-     ALLOCATE(sc_batched(nbase_max,n_k))
-     ALLOCATE(vc_batched(nbase_max,n_k))
-     ALLOCATE(ew_batched(nbase_max,n_k))
-     !$omp end master
-
+     
      !!!M.Iovine - for each thread, we write the corresponding matricesin the batched arrays and we add the Padding:
-     !...
+     if nbase < nbase_max then
+        !!! We find the maximum element of the nbasexnbase arrays:
+        maxv_hc = maxval(abs(hc(1:nbase,1:nbase,i_batch)))
+        maxv_sc = maxval(abs(sc(1:nbase,1:nbase,i_batch)))
+        maxv_vc = maxval(abs(vc(1:nbase,1:nbase,i_batch)))
+        do l=(nbase+1), nbase_max
+            !!! VERIFY IF THE FOLLOWING IS NECESSARY!!
+            hc_batched(:,1:l,i_batch) = 0.D0
+            hc_batched(1:l,:,i_batch) = 0.D0
+            sc_batched(:,1:l,i_batch) = 0.D0
+            sc_batched(1:l,:,i_batch) = 0.D0
+            vc_batched(:,1:l,i_batch) = 0.D0
+            vc_batched(1:l,:,i_batch) = 0.D0
+            !!! Diagonal elements (we base them on the maximum element of the reduced matrices --> we multiply for 10^5 for faster convergence
+            hc_batched(l,l,i_batch) = l*maxv_hc*1e5
+            sc_batched(l,l,i_batch) = l*maxv_sc*1e5
+            vc_batched(l,l,i_batch) = l*maxv_vc*1e5
+        end do
+     end if
+     
 
      !$omp master
+     ALLOCATE(ew_batched(nvecx,n_k)) !!!! M.Iovine - added allocation of the output of the routine cusolverBatched
      IF( my_bgrp_id == root_bgrp_id ) THEN
-        CALL diaghg( nbase, nvec, hc, sc, nvecx, ew, vc, me_bgrp, root_bgrp, intra_bgrp_comm )
+        !!! M.Iovine - we change the input for the subroutine call:
+        CALL diaghg( nbase_max, nvec, hc_batched, sc_batched, nvecx, ew_batched, vc_batched, me_bgrp, root_bgrp, intra_bgrp_comm )
      END IF
 
      !$omp end master
+     
+     !!!! M.Iovine - We give the outputs of the subroutine to each thread/k-point:
+     ew = ew_batched(:,i_batch)
+     vc = vc_batched(:,:,i_batch)
 
      !$acc wait(async_id) 
      call omp_unset_lock(cegterg_locker)
