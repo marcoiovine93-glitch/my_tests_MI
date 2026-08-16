@@ -2,7 +2,7 @@
 #define ZERO ( 0.D0, 0.D0 )
 #define ONE  ( 1.D0, 0.D0 )
 
-SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bgrp, root_bgrp, intra_bgrp_comm)
+SUBROUTINE laxlib_cdiaghg_gpu_batched(cublas_handle, n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bgrp, root_bgrp, intra_bgrp_comm)
   !----------------------------------------------------------------------------
   !!
   !! Called by diaghg interface.
@@ -72,6 +72,7 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
   !
 #if defined(__CUDA)
     ATTRIBUTES(DEVICE) :: h_d, s_d, e_d, v_d
+    TYPE(cublasHandle), INTENT(IN) :: cublas_handle !! M.Iovine - we set the cublas handle as an argument!
 #endif
   !
   INTEGER              :: lwork, info
@@ -93,12 +94,16 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
   COMPLEX(DP), VARTYPE :: work_d(:)
   !!!! M.Iovine - We add a line to define the info array corresponding to the Batched routine of the Cusolver NVIDIA library:
   INTEGER, ALLOCATABLE :: d_info(:)
+  !!!! M.Iovine - We define arrays of c_devptr pointers:
+  TYPE(c_devptr), ALLOCATABLE :: arr_of_ptr_s(:)
+  TYPE(c_devptr), ALLOCATABLE :: arr_of_ptr_h(:)
+  COMPLEX(DP) :: alpha=(1.D0, 0.D0) !! M.Iovine - we define the alpha coefficient for the triangular cublas linear solver 
   ! various work space
   !
   ! Temp arrays to save H and S.
   REAL(DP), VARTYPE    :: h_diag_d(:), s_diag_d(:)
 #if defined(__CUDA)
-  ATTRIBUTES( DEVICE ) :: work_d, rwork_d, h_diag_d, s_diag_d, d_info !!!! M.Iovine - added d_info to the device attributes
+  ATTRIBUTES( DEVICE ) :: work_d, rwork_d, h_diag_d, s_diag_d, d_info, arr_of_ptr !!!! M.Iovine - added d_info and arr_of_ptr to the device attributes
   INTEGER                      :: devInfo_d, h_meig
   ATTRIBUTES( DEVICE )         :: devInfo_d
   TYPE(cusolverDnHandle), SAVE :: cuSolverHandle
@@ -110,6 +115,7 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
 
   !!!! M.Iovine - We instantiate a cusolverDnSyevjInfo variable that is needed for the Batched routine provided by NVIDIA:
   TYPE(cusolverDnSyevjInfo) :: syevj_params
+  
 #endif
   INTEGER :: i, j, k !!!! M.IOvine - added index k for the third dimension of the arrays
 #undef VARTYPE
@@ -131,6 +137,13 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
 #if ! defined(__USE_GLOBAL_BUFFER)
       ALLOCATE(h_bkp_d(n,n,n_k), s_bkp_d(n,n,n_k), STAT = info) !!!! M.Iovine : h_bkp_d is a 3 dimensional array now!!
       IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate h_bkp_d or s_bkp_d ', ABS( info ) )
+      !! M.Iovine - We allocate the array d_info necessary for the cusolver diagonalization:
+      ALLOCATE(d_info(n_k),STAT = info)
+      IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate d_info ', ABS( info ) )
+      !! M.Iovine - we allocate the array of pointers for the Cholesky factorization:
+      ALLOCATE(arr_of_ptr(n_k),STAT = info)
+      IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot alloca    te arr_of_ptr ', ABS( info ) )
+
 #else
       CALL dev%lock_buffer( h_bkp_d,  (/ n, n /), info )
       IF( info /= 0 ) CALL lax_error__( ' cdiaghg_gpu ', ' cannot allocate h_bkp_d ', ABS( info ) )
@@ -139,9 +152,9 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
 #endif
       !
 !$cuf kernel do(3) <<<*,*,0,laxlib_cuda_stream>>> !!!! M.Iovine - Modified the loops nested from 2 to 3 --> so we changed kernel do(2) to kenel do(3) :
-      DO j=1,n
-         DO i=1,n
-            DO k=1,n_k
+      DO k=1,n_k
+         DO j=1,n
+            DO i=1,n
                 h_bkp_d(i,j,k) = h_d(i,j,k)
                 s_bkp_d(i,j,k) = s_d(i,j,k)
             ENDDO
@@ -158,7 +171,38 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
          info = cusolverDnSetStream(cusolver_handle(cusolver_thread), laxlib_cuda_stream )
          IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnSetStream',  ABS( info ) )   
       ENDIF
+      
+    !!!! M.Iovine - Cholesky factorization of the s overlap matrix:
+    !! We assign to each element of arr_of_ptr the device pointer to each 2D slice in s_d :
+    do k = 1, num_k
+        arr_of_ptr_s(k) = acc_deviceptr(s_d(:,:,k))
+    end do
+    
+
+    info = cusolverDnZpotrfBatched(cuSolverHandle, CUBLAS_FILL_MODE_LOWER, n, arr_of_ptr, ldh, d_info(1), n_k)
+    IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnZpotrfBatched',  ABS( info ) )
+    !!!!
+    
+    !! We assign to each element of arr_of_ptr the device pointer to eac    h 2D slice in h_d :
+    do k = 1, num_k
+        arr_of_ptr_h(k) = acc_deviceptr(h_d(:,:,k))
+    end do
+
+    !!!!M.Iovine - triagular pre and post multiplication of Hamiltonian:
+    !! Ly = H :
+    info = cublasZtrsmBatched(cublas_handle, CUBLAS_SIDE_LEFT, &
+           CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, &
+           n, n, alpha, arr_of_ptr_s, ldh, arr_of_ptr_h, ldh, n_k)
+    IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_g    pu ', 'cublasZtrsmBatched-LEFT',  ABS( info ) )
+
+    !! y = w L(conj. transpose) :
+    info = cublasZtrsmBatched(cublas_handle, CUBLAS_SIDE_RIGHT, &
+           CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_C, CUBLAS_DIAG_NON_UNIT, &
+           n, n, alpha, arr_of_ptr_s, ldh, arr_of_ptr_h, ldh, n_k)    
+    !!!!
+    IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_g        pu ', 'cublasZtrsmBatched-RIGT',  ABS( info ) )
       !
+
       !!!! M.Iovine - we define the parameters for the Jacobi algorithm corresponding to the diagonalization done through the batched cuSolver routine:
       info = cusolverDnCreateSyevjInfo(syevj_params)
       IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', 'cusolverDnCreateSyevjInfo',  ABS( info ) )
@@ -192,6 +236,14 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
       n, h_d, ldh, e_d, d_work, lwork_d, d_info(1), syevj_params, n_k)
       IF( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_gpu ', ' cusolverDnZheevjBatched failed ', ABS( info ) )
     
+    !!!! M.Iovine : we need to take into account the fact that the eigenvalues got after the factorization and the triangular matrix mult. are the same of the initial problem, but this is not true for the eigenvectors, so we need to solve a triangular system to get the effective eigenvectors:
+    !! M.Iovine : it is important to observe that the current eigenvectors are stored in the h_d matrix: h_d = L(conj. transpose) * eigvect
+    info = cublasZtrsmBatched(cublas_handle, CUBLAS_SIDE_LEFT, &
+           CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_C, CUBLAS_DIAG_NON_UNIT, &
+           n, n, alpha, arr_of_ptr_s, ldh, arr_of_ptr_h, ldh, n_k)
+    IF ( info /= CUSOLVER_STATUS_SUCCESS ) CALL lax_error__( ' cdiaghg_g        pu ', 'cublasZtrsmBatched-eigenvectors',  ABS( info ) )
+    
+
     !!!! M.Iovine - We need to order in acending way the eigenvalues
     !!!! and the corresponding eigenvectors:
     do ik = 1, n_k
@@ -238,6 +290,8 @@ SUBROUTINE laxlib_cdiaghg_gpu_batched( n, m, h_d, s_d, ldh, e_d, v_d, n_k, me_bg
       DEALLOCATE(work_d)
       DEALLOCATE(h_bkp_d, s_bkp_d)
       DEALLOCATE(d_info) !!!! M.Iovine - we deallocate d_info
+      DEALLOCATE(arr_of_ptr_h) !! M.Iovine - we deallocate arr_of_ptr
+      DEALLOCATE(arr_of_ptr_s) !! M.Iovine - we deallocate arr_of_ptr
 #else
       CALL dev%release_buffer( work_d,  info )
       CALL dev%release_buffer( h_bkp_d, info )

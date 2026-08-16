@@ -41,7 +41,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   USE device_memcpy_m, ONLY : dev_memcpy, dev_memset, dev_memcpy_async, &
                               dev_memset_async !Fixed: import device memory management routines
   USE mytime,          ONLY : clock_thread, clock_cuda_stream, cegterg_locker !Fixed: import thread private varibale
-  USE openacc,         ONLY : acc_get_cuda_stream !Fixed
+  USE openacc,         ONLY : acc_get_cuda_stream, c_devptr, acc_deviceptr !Fixed !!!! M.Iovine: we add c_devptr and acc_deviceptr
 #if defined(_OPENMP) 
   USE omp_lib, only:  omp_set_lock, omp_unset_lock
 #endif
@@ -353,7 +353,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      ALLOCATE(ew_batched(nvecx,n_k)) !!!! M.Iovine - added allocation of the output of the routine cusolverBatched
      IF( my_bgrp_id == root_bgrp_id ) THEN
         !!! M.Iovine - we change the input for the subroutine call:
-        CALL diaghg( nbase_max, nvec, hc_batched, sc_batched, nvecx, ew_batched, vc_batched, me_bgrp, root_bgrp, intra_bgrp_comm )
+        CALL diaghg( myblasHandle(i_batch), nbase_max, nvec, hc_batched, sc_batched, nvecx, ew_batched, vc_batched, me_bgrp, root_bgrp, intra_bgrp_comm )
      END IF
 
      !$omp end master
