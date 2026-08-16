@@ -1,4 +1,4 @@
-!
+
 ! Copyright (C) 2001-2015 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
@@ -13,13 +13,14 @@
 !
 ! Modified for batched k-point processing
 !
+! M.Iovine : added the argument n_k as INTENT(IN)
 #define ZERO ( 0.D0, 0.D0 )
 #define ONE  ( 1.D0, 0.D0 )
 !
 !----------------------------------------------------------------------------
 SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
                     npw, npwx, nvec, nvecx, npol, evc, ethr, &
-                    e, btype, notcnv, lrot, dav_iter, nhpsi, i_batch )
+                    e, btype, notcnv, lrot, dav_iter, nhpsi, i_batch, n_k )
   !----------------------------------------------------------------------------
   !
   ! ... iterative solution of the eigenvalue problem:
@@ -41,7 +42,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   USE device_memcpy_m, ONLY : dev_memcpy, dev_memset, dev_memcpy_async, &
                               dev_memset_async !Fixed: import device memory management routines
   USE mytime,          ONLY : clock_thread, clock_cuda_stream, cegterg_locker !Fixed: import thread private varibale
-  USE openacc,         ONLY : acc_get_cuda_stream !Fixed
+  USE openacc,         ONLY : acc_get_cuda_stream, c_devptr, acc_deviceptr !Fixed !!!! M.Iovine: we add c_devptr and acc_deviceptr
 #if defined(_OPENMP) 
   USE omp_lib, only:  omp_set_lock, omp_unset_lock
 #endif
@@ -78,6 +79,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
     ! number of unconverged roots
   INTEGER, INTENT(OUT) :: nhpsi
     ! total number of individual hpsi
+  INTEGER, INTENT(IN) :: n_k !! M.Iovine : added the number of k-points as argument in input for the allocation of arrays
   !
   ! ... LOCAL variables
   !
@@ -99,6 +101,9 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
     ! Hamiltonian on the reduced basis
     ! S matrix on the reduced basis
     ! the eigenvectors of the Hamiltonian
+  COMPLEX(DP), ALLOCATABLE :: hc_batched(:,:,:), sc_batched(:,:,:), vc_batched(:,:,:) !! M.Iovine - we define the corresponding 3D arrays for batch
+  REAL(DP), ALLOCATABLE :: ew_batched(:,:) !! M.Iovine - eigenvalues of the reduced Hamiltonian considered for batch on k-points
+  INTEGER :: n_k !! M.Iovine - n_k is the number of k points in the current batch
   REAL(DP), ALLOCATABLE :: ew(:)
   !!$acc declare device_resident(ew)
     ! eigenvalues of the reduced hamiltonian
@@ -207,6 +212,10 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   IF( ierr /= 0 ) &
      CALL errore( ' cegterg ',' cannot allocate conv ', ABS(ierr) )
   ALLOCATE( recv_counts(mp_size(inter_bgrp_comm)), displs(mp_size(inter_bgrp_comm)) )
+  !!M.Iovine - allocation of 3D arrays for batching :
+  ALLOCATE(hc_batched(nvecx, nvecx, n_k), STAT=ierr)
+  ALLOCATE(sc_batched(nvecx, nvecx, n_k), STAT=ierr)
+  ALLOCATE(vc_batched(nvecx, nvecx, n_k), STAT=ierr)
   !
   notcnv = nvec
   nbase  = nvec
@@ -347,13 +356,13 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
             vc_batched(l,l,i_batch) = l*maxv_vc*1e5
         end do
      end if
-     
+     !$omp barrier
 
      !$omp master
      ALLOCATE(ew_batched(nvecx,n_k)) !!!! M.Iovine - added allocation of the output of the routine cusolverBatched
      IF( my_bgrp_id == root_bgrp_id ) THEN
         !!! M.Iovine - we change the input for the subroutine call:
-        CALL diaghg( nbase_max, nvec, hc_batched, sc_batched, nvecx, ew_batched, vc_batched, me_bgrp, root_bgrp, intra_bgrp_comm )
+        CALL diaghg( myblasHandle(i_batch), nbase_max, nvec, hc_batched, sc_batched, nvecx, ew_batched, vc_batched, n_k, me_bgrp, root_bgrp, intra_bgrp_comm )
      END IF
 
      !$omp end master
@@ -754,6 +763,10 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   DEALLOCATE( vc )
   DEALLOCATE( hc )
   DEALLOCATE( sc )
+  DEALLOCATE( ew_batched ) !!M.Iovine - Deallocation of the arrays for the bacthed NVIDIA routines
+  DEALLOCATE( vc_batched ) 
+  DEALLOCATE( hc_batched ) 
+  DEALLOCATE( sc_batched )
   !
   IF ( uspp ) THEN
      !$acc exit data async(async_id) delete(spsi)
