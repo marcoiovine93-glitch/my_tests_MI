@@ -1,0 +1,394 @@
+02/08/2026:
+
+- CLUSTER BATCH RUN:
+    - to run a batch with slurm:
+        sbatch <job_name>
+    - to check what accounts are available for the current user:
+      sshare -u $USER
+
+- Hardware architecture check
+    sinfo <partition_name> -o "%.12P %.20G %.25f %.10c %.10m %.15N"
+
+- ERROR: PAY ATTENTION TO THE ALLOCATABLES!!:
+    - when we define them we don't need to specify the size for the allocation!!:
+        example: INTEGER(8), ALLOCATABLE :: example(:)
+        NOT: example(num)
+
+- ERROR: incorrect sequence of statements:
+    - incorrect sequence of statements:
+        - IMPLICIT NONE MUST BE INCLUDED AFTER the use.. lines!!
+        - #if defined(_OPENMP)
+             USE omp_lib, only: omp_get_thread_num
+          #endif 
+            - the part with OpenMP cannot be inserted inside the body declaration
+    
+    - Derived type has not been declared - syevjinfo:
+        - THIS IS REALLY IMPORTANT:
+        - the error depends on the modules defined on the cluster and on the NVIDIA C/C++ CUDA toolkit headers
+        - the headers are located in:
+            - $CUDA_HOME/include/cusolverDn.h --> THIS IS NOT TRUE!!!
+                - I need to load the module to find it!!!
+        - Use cusolverDn in the code makes possible to load a Fortran module cusolverDn.mod provided by the compiler NVIDIA HPC SDK (nfortran)
+        - In the modules, NVIDIA creates Fortran Derived Types by using           ISO_C_BINDING to wrap together the pointers
+        - These derived types correspond to HANDLES and to INFO or CONFIGURATION descriptors
+        - FOr the HANDLES, Fortran provides aliases with and without "_t":
+            - TYPE(cusolverHandle) equivalent to TYPE(cusolverHandle_t)
+        - For the parameters, it doesn't provide aliases without _t:
+            - TYPE(syevjInfo) --> WRONG!!
+            - TYPE(syevjInfo_t) --> CORRECT!!
+            - PROBLEM:
+                - we still observe the problem
+                - WHY? Because probably the version of NVIDIA HPC SDK (NVHPC SDK) does not provide a cusolverDn module with the custom wrapper derived type syevjInfo_t
+                - HOW TO SOLVE??
+                    -  We can define a C-pointer binded to Fortran and a C pointer to null binded --> in this way we can avoid defining a derived 
+                       type corresponding to the custom wrapper
+                    -  REMEMBER THAT THE AUXILIARY PARAMETER HANDLES ARE opaque c-pointers
+
+        - INSPECT MODULE FILES BEFORE LOADING THEM:
+            module show nvhpc
+        - TO CHECK WHAT MODULES ARE LOADED AND THE LOCATION OF THE LIBS (L) AND THE FILES TO BE INCLUDED (I) :
+            - env | sort 
+
+        - ERROR: Keyword form of argument illegal in this context for kind
+            - it is due to the fact that COMPLEX(2.0D0, 0.0D0, kind=8) : THE kind=8 is wrong, we just need to put "8" instead!
+
+        - ERROR : Illegal use of symbol cusolverdncreate - attempt to CALL a FUNCTION
+            - the function to create and Destroy the cusolverDn handle need to be called as : STATUS = function, NOT as CALL ...
+        - ERROR: complex, has not been explicitly declared
+            - REMEMBER THAT THE COMPLEX(8) is used only when we define it as the type of the variable, when we want to write a value as complex,
+              we simply do: (2.0D, 0.0D)
+        - WARNING!!:
+            - WE NEED TO PAY ATTENTION TO THE CUDA VERSION and especially to the NVDIA HPC SDK Toolkit version!!
+                - some older Toolkit version don't support the APIs with complex values!!!
+        - WE HAVE THE ERROR:
+            -   1 nvfortran-Error-A CUDA toolkit matching the current driver version (12.2) or a supported older version (11.0 or 12.3) was not installed with this HPC SDK.
+        - ATTENTION!!:
+            - CUDA follows a strict rule: The CUDA Toolkit version cannot be higher than the maximum CUDA version supported by your installed GPU drive
+        
+        - ERROR:
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:120: undefined reference to `cusolverdncreatesyevjinfo_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:121: undefined reference to `cusolverdnxsyevjsettolerance_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:122: undefined reference to `cusolverdnxsyevjsetmaxsweeps_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:123: undefined reference to `cusolverdnxsyevjsetsorteig_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:136: undefined reference to `cusolverdndsyevjbatched_buffersize_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:142: undefined reference to `cusolverdndsyevjbatched_'
+            /leonardo/home/userexternal/miovine0/Thesis_MHPC/script_cusolver_batched_test_realval.f90:152: undefined reference to `cusolverdndestroysyevjinfo_'
+
+- PROBABLY THE ONLY WAY TO OVERCOME THE ERROR IS TO INTRODUCE A C-BINDING FOR THE APIS CORRESPONDING TO THE 
+
+
+WARNING!!!: d_w must be allocated after the BufferSize call!!!
+
+- to access machine small cluster: ssh spark-dgx-qe.cm.sissa.it
+- how to set a new password: 
+    passwd
+
+
+- HOW TO SET PASSWORDLESS ACCESS TO CLUSTER:
+    - local machine : go to or create the folder .ssh --> if there are still the ssh keys, we will see 2 ids: one .public and one without it
+    - we need to copy the public key to the cluster with scp
+    - on the cluster: create the folder .ssh --> copy the copied key in a file named authorized_keys
+    - local machine: create a file in the folder .ssh called configure and set the Host, the usrname, the pertition
+
+
+- COMPILE THE CODE ON SMALL CLUSTER:
+    - we see a similar issue to the Leonardo one:
+        - NVFORTRAN-S-0188-Argument number 1 to cusolverdncreatesyevjinfo: type mismatch (script_cusolver_batched_test.f90: 126)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdnxsyevjsettolerance: type mismatch (script_cusolver_batched_test.f90: 127)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdnxsyevjsetmaxsweeps: type mismatch (script_cusolver_batched_test.f90: 128)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdnxsyevjsetsorteig: type mismatch (script_cusolver_batched_test.f90: 129)
+NVFORTRAN-S-0188-Argument number 9 to cusolverdnzheevjbatched_buffersize: type mismatch (script_cusolver_batched_test.f90: 139)
+NVFORTRAN-S-0446-Argument number 10 to cusolverdnzheevjbatched: rank mismatch (script_cusolver_batched_test.f90: 150)
+NVFORTRAN-S-0188-Argument number 11 to cusolverdnzheevjbatched: type mismatch (script_cusolver_batched_test.f90: 150)
+NVFORTRAN-S-0188-Argument number 1 to cusolverdndestroysyevjinfo: type mismatch (script_cusolver_batched_test.f90: 161)
+    
+    - But probably is all originating from the fact that the Sinfo variable is not declared in line with the module present in fortran 
+      for wrap the opaque c struct!!!
+    
+    - deferred type array:
+        - array whose size and values are not stated at compile time, but during the program execution!!!
+    
+    - SOLUTION !!!!! :
+        - the right way to define the syevjinfo parameters is the following:
+            TYPE(cusolverDnSyevjInfo) :: syevj_params
+            - NOT: TYPE(c_ptr) :: syevj_params = c_null_ptr or TYPE(syevjInfo) = ....  WARNING!!!
+            - Resource: run nvidia_interfaces to go to : https://docs.nvidia.com/hpc-sdk/archive/21.3/compilers/fortran-cuda-interfaces/index.html#cfsolver-runtime
+
+    - NOW WE HAVE A PROBLEM WITH THE d_info ARGUMENT OF THE BATCHED API!! --> rank problem
+        - SOLUTION: we introduced an INteger instead of an array for d_info and it seems to work!!
+        - This means that the Fortran interface bundled with the module considers the d_info not as a pointer, but as a scalar!!
+            - ARE WE SURE????
+
+    - ATTENTION!!!!
+        - the cusolverDn module in fortran is already provided with an interface that wraps the C functions and types to fortran with a proper 
+          binding
+        - if we want to do a manual binding, we need to do it for all the functions included in cusolverDn, we cannot do it only for the 
+          API calls that show errors --> no possibility of hybrid approach!!!
+
+    - How to check if a fortran module has a specific type or function??
+        - IT DEPENDS ON THE ERROR --> IF IT STATES THAT THE NAME IS WRONG, BUT IT SEES IT, PROBABLY IT IS PROVIDED WITH THAT FUNCTION!
+
+    - PROBLEM with d_info:
+        - for C language it is defined, as argument of the batched function, as an array/pointer, however if we define it as an array 
+            - rank problem
+        - If we define it as a scalar, we get a segmentation fault when we try to print it because it seems that the cusolver batched api try to
+          write more data in a single value scaral variable
+        - SOLUTION: we defied it as an array 1D --> but we put in the batched function d_info as: d_info(1)  !!!!
+
+    - PROBLEM: WE SEE AN ISSUE ALREADY AT THE cusolverDn creation
+        - possible reasons: acc not specified at compile 
+        - How to check the gpu available?
+            - command: nvidia-smi
+            - what is the compute capability?? : it is the version of the graphic card given by NVIDIA!!!
+                - it can change a lot among different GPUs!!
+    
+    - COMPILE ERROR: 
+        - on the small machine, we should compile with:
+            - nvfortran -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_cusolver_batched_test.f90
+    
+    - ERROR AT RUNTIME:
+        - Failing in Thread:0
+          Accelerator Fatal Error: call to cuInit returned error 805 (CUDA_ERROR_MPS_CONNECTION_FAILED): MPS client failed to connect to the 
+          MPS control daemon or the MPS server
+        - What is MPS control daemon???
+            - it is the Multi-Process-Service
+            - runtime service to enable cooperative CUDA multi process and multi application workflows 
+            - in this case we don't need it, so we can run by launching:
+                CUDA_MPS_PIPE_DIRECTORY=/tmp/nonexistent-mps-dir-marco ./script_diag
+
+Single thread run instruction to compile and run on small cluster:
+set the enviroment
+compile: nvfortran -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_cusolver_batched_test.f90 
+(nvidia-smi to check the GPU available)
+run: CUDA_MPS_PIPE_DIRECTORY=/tmp/nonexistent-mps-dir-marco ./script_diag
+
+compile multithread:
+nvfortran -Mpreprocess -mp -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag script_cusolver_batched_test_multithread.f90
+
+- Single kernel case for comparison with the batched routines of NVIDIA:
+    - FIRST ERROR: Segmentation fault --> it was due to the fact that the d_info and h_eig of the cusolverDnZhegvdx solver were defined as ARRAYS
+      and never allocated and to the fact that the solver needed them as scalars, not as arrays!!! --> if I don't allocate for an array, how 
+      is it possible to write data? --> The address is not specified, it doesn't exist
+    - SECOND ERROR: The eigenvalues are all null and the eigenvectors seem to be wrong
+        - SOLUTION:
+            - It is really important to check the number given by the STATUS (the output variable of the API call)
+            - if the number is 8, and the matrix is 6x6, it means that, for the overlap matrix, taken from the documentation:
+                "If devInfo = N + i (i > 0), then the leading minor of order i of B is not positive definite. The factorization of B could not be completed and no eigenvalues or eigenvectors were computed." --> the factorization (THIS IS IMPORTANT) is done with Cholesky factorization method!!
+                - THE ERROR WAS REALLY BAD AND DUMB AND WAS DUE TO THE FACT THAT THE ELEMENTS OF THE DIAGONAL WERE NOT SET AS MATRIX ELEMENTS (WITH
+                  THE PROPER INDEX), BUT AS A SCALAR VALUE
+
+            - We want to compare the results given by the 2 approaches with a Bash script:
+            
+
+
+
+13/08:
+
+- Script for cholesky factorization batched test:
+    - ERROR: 
+        - NVFORTRAN-S-0148-Reference to derived type required 
+          (script_cholesky_batched_test.f90: 128)
+          NVFORTRAN-S-0038-Symbol, acc_deviceptr, has not been 
+          explicitly declared (script_cholesky_batched_test.f90: 1)
+          0 inform,   0 warnings,   2 severes, 0 fatal for 
+          script_cholesky
+            - REASON: the error was due to acc_deviceptr missing
+                      after the USE openacc line!!
+
+         - Cublas script error:
+            - script_cublas_batched_test.f90:160:6: error S0155: Could not resolve generic procedure 'cublaszgemmstridedbatched' 
+              CALL cublasZgemmStridedBatched(cublas_handle, &
+              script_cublas_batched_test.f90:160: Actual argument of type 'integer*4' is not compatible with dummy argument 'ctransa' 
+              in specific procedure:
+                    - there are 2 problems: 
+                        - the cublas expects the matrices passed as pointer to 2D arrays, so it is not correct to pass a single scalar: a(1,1,1)
+                        - the strides are passed as type long long : this means that we need to cast the integer stride as INT(a,8):
+                            - in Fortran, it corresponds to 8 byte (64 bit) integer, that's why we have the 8!!!
+                    - /usr/bin/ld: /tmp/nvfortranxwRggfk_zc5P2.o: in function `MAIN_':
+                      /home/marco/script_cublas_batched_test.f90:154:(.text+0x928): undefined reference to `__pgi_cublasCreate'
+                      /usr/bin/ld: /home/marco/script_cublas_batched_test.f90:160:(.text+0xa34): undefined reference to `zgemmstridedbatched_sethpm_'
+                      /usr/bin/ld: /home/marco/script_cublas_batched_test.f90:201:(.text+0x1158): undefined reference to `__pgi_cublasDestroy'
+                      pgacclnk: child process exit status 1: /usr/bin/ld
+                            - these are link errors!!! 
+                            - the compiling has an error:
+                                nvfortran -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_cublas script_cublas_batched_test.f90
+                            - the link to the library is not correct:
+                                nvfortran -acc=gpu -gpu=cc121 -cudalib=cublas -o script_cublas script_cublas_batched_test.f90
+
+        - Cublas cublasZtrsmBatched compiling issues : 
+            - script_cublas_triang_batched_test.f90:158: Actual argument of type 'double complex*8(:,:,:)' is not compatible with dummy argument 'a' in specific procedure:
+            integer*4 function ztrsmbatched_sethpm(h, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchcount)
+            type(cublashandle) :: h
+        integer*4 :: side
+        integer*4 :: uplo
+        integer*4 :: trans
+        integer*4 :: diag
+        integer*4 :: m
+        integer*4 :: n
+        double complex*8 :: alpha
+        type(c_devptr), device :: a(*)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        integer*4 :: lda
+        type(c_devptr), device :: b(*)
+        integer*4 :: ldb
+        integer*4 :: batchcount
+       end function ztrsmbatched_sethpm
+        
+        - THE ERROR IS DUE TO THE FACT THAT THE ARRAYS a AND b must be ARRAYS OF POINTERS, NOT 3D CONTIGUOUS ARRAYS!!!
+        - So we need to consider arrays of pointers!!
+
+        - When compiling the triangular linear solver for not batched :
+            - script_cublas_triang_NObatched_test.f90:111:10: error S0155: Could not resolve generic procedure 'cublasztrsm' 
+              STATUS = cublasZtrsm(cublas_handle, CUBLAS_SIDE_LEFT, &
+            - SOLUTION: cublasZtrsm_v2 instead of cublasZtrsm:
+                - why this works?: because cublasZtrsm calls a generic interface and tries to match the arguments we passed with a specific 
+                  procedure managed by the interface;
+                  - the v2 version works because it skips the guessing part of the specific aligment with the arguments passed!!!
+                  - NOOOOO!!! It doesn't skip the part for checking the arguments, it skips the part of the overloading of the procedure
+                    --> this means that the compiler doesn't face the risk to do a call to the wrong overload (for example with single precision
+                    instead of double precision) --> it checks directly the name itself, without overload resolution
+                  - Overloading in Fortran:
+                        - it is the characteristic of a procedure or operator to be able to work with multiple types 
+
+
+    - Compiling of changes for cusolver diagonalization:
+        - first attempt:
+            CC=nvc FC=nvfortran cmake ../ -DBLA_VENDOR=NVPL -DQE_FFTW_VENDOR=NVPL -DQE_ENABLE_OPENMP=on -DQE_ENABLE_CUDA=on
+            - ERROR:
+            CMake Warning:
+            No source or binary directory provided.  Both will be assumed to be the
+            same as the current working directory, but note that this warning will
+            become a fatal error in future CMake releases.
+
+
+            -- The Fortran compiler identification is NVHPC 26.3.0
+            -- The C compiler identification is NVHPC 26.3.0
+            -- Detecting Fortran compiler ABI info
+            -- Detecting Fortran compiler ABI info - done
+            -- Check for working Fortran compiler: /opt/nvidia/hpc_sdk/Linux_aarch64/26.3/compilers/bin/nvfortran - skipped
+            -- Detecting C compiler ABI info
+            -- Detecting C compiler ABI info - done
+            -- Check for working C compiler: /opt/nvidia/hpc_sdk/Linux_aarch64/26.3/compilers/bin/nvc - skipped
+            -- Detecting C compile features
+            -- Detecting C compile features - done
+            CMake Error at CMakeLists.txt:21 (message):
+            QE source folder cannot be safely used as a build folder!
+        - SECOND ATTEMPT: CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVPL   -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON
+            - -S . : tells Cmake that the source code and the root are in the current folder
+            - -B build : Cmake will put the binaries and the generated files in the build directory 
+            - this generates the build folder
+            - so we go inside the build folder and run the make command
+            - We get the error: /usr/bin/ld: ../../lib/libqe_utilx.a(clocks_handler.f90.o): in function `start_clock_':
+                /home/marco/KS_SOLVER_CB/UtilXlib/clocks_handler.f90:185: multiple definition of `start_clock_'; CMakeFiles/qe_fftx_test.dir/fft_test                .f90.o:/home/marco/KS_SOLVER_CB/FFTXlib/tests/fft_test.f90:1117: first defined here
+                    - the issue was due to the fact that the clock statement was declared in 2 files/modules (normally the clock statement are
+                      defined in the UtilXlib!!!
+                    - THE ROOT CAUSE IS RELATED TO THE FLAG: -DQE_ENABLE_TESTS=OFF , doesn't seem to work, in fact, if we run:
+                      ccmake .
+                    - We see that the flag is set to ON : if we set it to OFF manually, we are able to run the make, in particular running:
+                      make cb_davidson 
+                    - Maybe it will be necessary to isolate the diaghg and test it separately!!!!
+                    - ISSUE SOLUTION (TYPO FOR TEST FLAG):
+                    CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVPL   -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON -DQE_ENABLE_TEST=OFF
+            - Further issue after having compiled :
+                NVFORTRAN-S-0023-Syntax error - unbalanced parentheses (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 458)
+                NVFORTRAN-S-0038-Symbol, arr_of_ptr, has not been explicitly declared (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 208)
+                0 inform,   0 warnings,   2 severes, 0 fatal for laxlib_cdiaghg_gpu
+                make[3]: *** [LAXlib/CMakeFiles/qe_lax.dir/build.make:218: LAXlib/CMakeFiles/qe_lax.dir/cdiaghg.f90.o] Error 2
+    
+                - FURTHER ISSUE:
+                    - problem with acc_deviceptr and cublasztrsmbatched:
+                        - THIS ERRORS ARE CAUSED BY THE FACT THAT THE 
+                          use STATEMENT ONLY MAKES AVAILABLE A MODULE'S
+                          PUBLIC ENTITIES ACCESSIBLE BUT ONLY WITHIN
+                          THE SCOPING UNIT CONTAINING THE use STATEM.
+                        - SO THE EFFECT OF THE use STATEMENT DOESN'T
+                          PROPAGATE TO CALLED SUBROUTINES OR PROCEDURES
+                
+                - ISSUE: 
+                    - NVFORTRAN-S-0528-Argument number 1 to acc_deviceptr: device attribute mismatch (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 391)
+                    - it is due to the fact that the argument of acc_deviceptr function is already a device variable, not a host one
+                    - so we need another way to retrieve the device pointer!!!
+                    - there is also another problem:    
+                        - in the diaghg it seems that the arguments s, h and v to be already device array
+                        - this means that they are already passed to the diaghg as device array
+                        - but where are they passed to the device in the cegterg.f90?
+                        - so also the 3d batched arrays need to be passed as device arrays and need to be contextually destroyed
+                        - SO A SOLUTION COULD BE TO DEFINE AND ALLOCATE THE 3D ARRAYS DIRECTLY ON THE DEVICE!!!
+                            - In this way, we define the arrays as : COMPLEX(DP), ALLOCATABLE, DEVICE :: array(:)
+                            - THEN WE CAN ALLOCATE BY DOING: ALLOCATE(array(n))
+                            - BUT WE NEED AS WELL TO MODIFY acc_deviceptr, to use something else!!
+                                - WE CAN'T BECAUSE THE ROUTINE : ztrsmbatched WANTS THE ARRAYS OF POINTERS AS TYPE(C_DEVPTR)!!!
+                                - IN FACT, THE SCRIPT: script_cublas_triang_batched_devicearrays_test.f90 DOESN'T WORK!!!
+                                - SOLUTION:
+                                    - it is possible to use the c_devloc function:
+                                        - it creates a TYPE(C_DEVPTR) with the c-address of the device array passed as argument 
+                                        - in this way, we can make reference directly to the device arrays, without the need to use
+                                          acc_deviceptr!!!
+                                        - We implemented it in the script:
+                                            script_cublas_triang_batched_devicearrays_CORRECT_test.f90
+                                        - BUT WE OBSERVED SOME ERRORS WHILE TRYING COMPILING:
+                                            - Accelerator Fatal Error: call to cuMemcpyDtoHAsync returned error 700 (CUDA_ERROR_ILLEGAL_ADDRESS): 
+                                              Illegal address during kernel execution File: 
+                                              /home/marco/script_cublas_triang_batched_devicearrays_CORRECT_test.f90
+                                              Function: script_cublas_triang:6
+                                              Line: 153
+                                            - WHY THIS ERROR:
+                                                - The error is due to the fact that we defined the 3d arrays as DEVICE arrays, and then we 
+                                                  copied them in with OPenACC --> this is doable, the problem is that when we pass the 3D array
+                                                  to the c_devloc, c_devloc expects a DEVICE attribute, not a copied in 
+                                                  - WHY?? BECAUSE c_devloc is a CUDA Fortran function !!!!
+                                                  - SO REALLY IMPORTANT:
+                                                    - CUDA Fortran functions and OpenACC directives cannot be mixed: they are different things
+                                                    - in this case, due to the DEVICE clause, we need to add -cuda flag when compiling:
+                                                      nvfortran -Mdetail -acc=gpu -cuda -gpu=cc121 -cudalib=cublas -o 
+                                                      script_cublas script_cublas_triang_batched_devicearrays_CORRECT_test.f90
+                                                    - This is true also for the host_data use_device, IN WHICH WE ABSOLUTELY DON'T NEED TO PUT 
+                                                      THE 3D ARRAYS (IN THIS CASE)
+                                                    - ATTENTION!! : probably the c_devloc is callable only from the host (the left value must be a 
+                                                      host variable)
+                        
+                    - IMPORTANT ISSUE:
+                        - NVFORTRAN-S-0038-Symbol, allocate, has not been explicitly declared (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 208)
+                        - THE ERROR WAS A COMPILATION ERROR AND IT INDICATES A LINE WHICH IS THE FIRST LINE OF THE RUN SUBROUTINE
+                        - SO IT IS DIFFICULT TO CHECK THE ERROR
+                        - TO DO SO, WE CAN SEARCH ALLA THE "ALLOCATE" LINE IN THE FILE cdiaghg_preprocessed.f90 IN LAXLIB FOLDER:
+                            grep -in 'allocate' cdiaghg_preprocessed.f90 | head -60
+                        - SOLUTION:
+                            - the error was due to the wrong allocation of an array
+                                - the arrays need to be allocated as "ALLOCATE()", not as "info=ALLOCATE()"!!!!!!!
+                    
+                    - NEW ISSUE:
+                        - NVFORTRAN-S-0155-Could not resolve generic procedure 'diaghg'  (/home/marco/KS_SOLVER_CB/KS_Solvers/Davidson/cegterg.f90: 369)
+                            - this is due to the function interface defined in the file: laxlib_hi.h
+                                - so we should change all the function calls made in the code
+                                - MAYBE IT IS BETTER TO DEFINE THE HANDLE INSIDE THE FUNCTION BODY!!! 
+                                - NOO!! Our function cdiaghg works in a very different way: 
+                                    - has different rank for the arguments, so we need to define it inside the interface and add the subroutine 
+                                      to the existing ones!!!
+                                    - so we modify laxlib_hi.h to add a new function called laxlib_cdiaghg_batched
+                                    - the interface should be capable to call a specific function depending on the arguments and the type of the arguments passed into the call to diaghg!!!!
+                                    - we added the function to cdiaghg.f90!!!
+                                    - FURTHER ISSUE:
+                                        NVFORTRAN-S-0155-Derived type has not been declared - cublashandle (/home/marco/KS_SOLVER_CB/build/LAXlib/include/laxlib_hi.fh: 55)
+                                        0 inform,   0 warnings,   1 severes, 0 fatal for mp_global
+                                        - this means that the cublas handle in the interface gives problems!!!!
+                                        - THE MOST AFFORDABLE FIX IS TO DEFINE THE cublas HANDLE INSIDE THE BODY OF THE NEW SUBROUTINE IN cdiaghg AND REMOVE THE HANDLE AS AN ARGUMENT
+
+                    - ISSUE: NVFORTRAN-S-0070-Incorrect sequence of statements
+                        - it is due to the fact that the specification lines must always be before the executable parts!!
+                        - for example the arrays and variables definitions are specification parts, while an assignment or statement etc. is already an executable!!!!
+
+
+                    - The 3D arrays in cegterg need to be allocated on the gpu or at least copied from host to device!!!
+
+                    - WARNING ON cdiaghg:
+                        - CURRENTLY THE ARRAYS h_d, s_d, v_d are static arrays --> shoul we make them dynamic (allocatable) when we make them 3D?
+                        - FOR THE MOMENT WE LEAVE THEM AS STATIC ARRAYS!!
+
+
+
+REMEMBER :
+    - Compiling on the small machine cluster:
+    CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVP    -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON     -DQE_ENABLE_TEST=OFF
+
+
