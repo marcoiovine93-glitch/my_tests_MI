@@ -624,4 +624,26 @@ WARNING!!:
                                         - The Z in the APIs of cublas and cusolver is referring to the complex type with Double Precision !!!
 
     - Overloading in Fortran:
-        - it is the characteristic of a procedure or operator to be ableto work with multiple types   
+        - it is the characteristic of a procedure or operator to be ableto work with multiple types  
+
+
+    - cublas managing in quantum espresso mini-app:
+        - the cublas Handle is created and destroyed per each batch in cegterg.f90
+        - the cublasHandle is defined, created and destroyed inside the cegterg.f90
+        - the cusolver is managed in the davidson_main.f90 through an initialization of nk_batched handles:
+            - initialize_cusolver_handles(nk_batches)
+            - probably it will be possibile, after implemented the changes to cegterg and cdiaghg, to modify also the initialization in davidson_main
+        - WE need to consider that the batched APIs need just one handle per set of k-points, so for example in cegterg we have, for each i_batch
+          a cublas Handle
+            - for the moment, considering that we are implementing cusolver diag for batched calls, we pass the first cublas handle as argument
+              of cdiaghg_batched
+
+
+              - GIT NOTE:
+                - GIT clone: when we clone a Repo, we don't see automatically all the branches locally
+                - what we need to do is to be sure of having retrieved all the resources locally (git fetch --all)
+                - then we directly do a checkout on the branch we want to modify --> we will be able to do it
+                - and then we will be able to push changes!!!!
+                - so to make the branches available locally, we need anyway to connect with the desired branches!!!!
+                - we created a new folder with a new clone: 
+                    - new_folder_QE_git_clone

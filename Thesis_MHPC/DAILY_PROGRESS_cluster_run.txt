@@ -250,3 +250,145 @@ nvfortran -Mpreprocess -mp -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag 
                   - Overloading in Fortran:
                         - it is the characteristic of a procedure or operator to be able to work with multiple types 
 
+
+    - Compiling of changes for cusolver diagonalization:
+        - first attempt:
+            CC=nvc FC=nvfortran cmake ../ -DBLA_VENDOR=NVPL -DQE_FFTW_VENDOR=NVPL -DQE_ENABLE_OPENMP=on -DQE_ENABLE_CUDA=on
+            - ERROR:
+            CMake Warning:
+            No source or binary directory provided.  Both will be assumed to be the
+            same as the current working directory, but note that this warning will
+            become a fatal error in future CMake releases.
+
+
+            -- The Fortran compiler identification is NVHPC 26.3.0
+            -- The C compiler identification is NVHPC 26.3.0
+            -- Detecting Fortran compiler ABI info
+            -- Detecting Fortran compiler ABI info - done
+            -- Check for working Fortran compiler: /opt/nvidia/hpc_sdk/Linux_aarch64/26.3/compilers/bin/nvfortran - skipped
+            -- Detecting C compiler ABI info
+            -- Detecting C compiler ABI info - done
+            -- Check for working C compiler: /opt/nvidia/hpc_sdk/Linux_aarch64/26.3/compilers/bin/nvc - skipped
+            -- Detecting C compile features
+            -- Detecting C compile features - done
+            CMake Error at CMakeLists.txt:21 (message):
+            QE source folder cannot be safely used as a build folder!
+        - SECOND ATTEMPT: CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVPL   -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON
+            - -S . : tells Cmake that the source code and the root are in the current folder
+            - -B build : Cmake will put the binaries and the generated files in the build directory 
+            - this generates the build folder
+            - so we go inside the build folder and run the make command
+            - We get the error: /usr/bin/ld: ../../lib/libqe_utilx.a(clocks_handler.f90.o): in function `start_clock_':
+                /home/marco/KS_SOLVER_CB/UtilXlib/clocks_handler.f90:185: multiple definition of `start_clock_'; CMakeFiles/qe_fftx_test.dir/fft_test                .f90.o:/home/marco/KS_SOLVER_CB/FFTXlib/tests/fft_test.f90:1117: first defined here
+                    - the issue was due to the fact that the clock statement was declared in 2 files/modules (normally the clock statement are
+                      defined in the UtilXlib!!!
+                    - THE ROOT CAUSE IS RELATED TO THE FLAG: -DQE_ENABLE_TESTS=OFF , doesn't seem to work, in fact, if we run:
+                      ccmake .
+                    - We see that the flag is set to ON : if we set it to OFF manually, we are able to run the make, in particular running:
+                      make cb_davidson 
+                    - Maybe it will be necessary to isolate the diaghg and test it separately!!!!
+                    - ISSUE SOLUTION (TYPO FOR TEST FLAG):
+                    CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVPL   -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON -DQE_ENABLE_TEST=OFF
+            - Further issue after having compiled :
+                NVFORTRAN-S-0023-Syntax error - unbalanced parentheses (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 458)
+                NVFORTRAN-S-0038-Symbol, arr_of_ptr, has not been explicitly declared (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 208)
+                0 inform,   0 warnings,   2 severes, 0 fatal for laxlib_cdiaghg_gpu
+                make[3]: *** [LAXlib/CMakeFiles/qe_lax.dir/build.make:218: LAXlib/CMakeFiles/qe_lax.dir/cdiaghg.f90.o] Error 2
+    
+                - FURTHER ISSUE:
+                    - problem with acc_deviceptr and cublasztrsmbatched:
+                        - THIS ERRORS ARE CAUSED BY THE FACT THAT THE 
+                          use STATEMENT ONLY MAKES AVAILABLE A MODULE'S
+                          PUBLIC ENTITIES ACCESSIBLE BUT ONLY WITHIN
+                          THE SCOPING UNIT CONTAINING THE use STATEM.
+                        - SO THE EFFECT OF THE use STATEMENT DOESN'T
+                          PROPAGATE TO CALLED SUBROUTINES OR PROCEDURES
+                
+                - ISSUE: 
+                    - NVFORTRAN-S-0528-Argument number 1 to acc_deviceptr: device attribute mismatch (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 391)
+                    - it is due to the fact that the argument of acc_deviceptr function is already a device variable, not a host one
+                    - so we need another way to retrieve the device pointer!!!
+                    - there is also another problem:    
+                        - in the diaghg it seems that the arguments s, h and v to be already device array
+                        - this means that they are already passed to the diaghg as device array
+                        - but where are they passed to the device in the cegterg.f90?
+                        - so also the 3d batched arrays need to be passed as device arrays and need to be contextually destroyed
+                        - SO A SOLUTION COULD BE TO DEFINE AND ALLOCATE THE 3D ARRAYS DIRECTLY ON THE DEVICE!!!
+                            - In this way, we define the arrays as : COMPLEX(DP), ALLOCATABLE, DEVICE :: array(:)
+                            - THEN WE CAN ALLOCATE BY DOING: ALLOCATE(array(n))
+                            - BUT WE NEED AS WELL TO MODIFY acc_deviceptr, to use something else!!
+                                - WE CAN'T BECAUSE THE ROUTINE : ztrsmbatched WANTS THE ARRAYS OF POINTERS AS TYPE(C_DEVPTR)!!!
+                                - IN FACT, THE SCRIPT: script_cublas_triang_batched_devicearrays_test.f90 DOESN'T WORK!!!
+                                - SOLUTION:
+                                    - it is possible to use the c_devloc function:
+                                        - it creates a TYPE(C_DEVPTR) with the c-address of the device array passed as argument 
+                                        - in this way, we can make reference directly to the device arrays, without the need to use
+                                          acc_deviceptr!!!
+                                        - We implemented it in the script:
+                                            script_cublas_triang_batched_devicearrays_CORRECT_test.f90
+                                        - BUT WE OBSERVED SOME ERRORS WHILE TRYING COMPILING:
+                                            - Accelerator Fatal Error: call to cuMemcpyDtoHAsync returned error 700 (CUDA_ERROR_ILLEGAL_ADDRESS): 
+                                              Illegal address during kernel execution File: 
+                                              /home/marco/script_cublas_triang_batched_devicearrays_CORRECT_test.f90
+                                              Function: script_cublas_triang:6
+                                              Line: 153
+                                            - WHY THIS ERROR:
+                                                - The error is due to the fact that we defined the 3d arrays as DEVICE arrays, and then we 
+                                                  copied them in with OPenACC --> this is doable, the problem is that when we pass the 3D array
+                                                  to the c_devloc, c_devloc expects a DEVICE attribute, not a copied in 
+                                                  - WHY?? BECAUSE c_devloc is a CUDA Fortran function !!!!
+                                                  - SO REALLY IMPORTANT:
+                                                    - CUDA Fortran functions and OpenACC directives cannot be mixed: they are different things
+                                                    - in this case, due to the DEVICE clause, we need to add -cuda flag when compiling:
+                                                      nvfortran -Mdetail -acc=gpu -cuda -gpu=cc121 -cudalib=cublas -o 
+                                                      script_cublas script_cublas_triang_batched_devicearrays_CORRECT_test.f90
+                                                    - This is true also for the host_data use_device, IN WHICH WE ABSOLUTELY DON'T NEED TO PUT 
+                                                      THE 3D ARRAYS (IN THIS CASE)
+                                                    - ATTENTION!! : probably the c_devloc is callable only from the host (the left value must be a 
+                                                      host variable)
+                        
+                    - IMPORTANT ISSUE:
+                        - NVFORTRAN-S-0038-Symbol, allocate, has not been explicitly declared (/home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: 208)
+                        - THE ERROR WAS A COMPILATION ERROR AND IT INDICATES A LINE WHICH IS THE FIRST LINE OF THE RUN SUBROUTINE
+                        - SO IT IS DIFFICULT TO CHECK THE ERROR
+                        - TO DO SO, WE CAN SEARCH ALLA THE "ALLOCATE" LINE IN THE FILE cdiaghg_preprocessed.f90 IN LAXLIB FOLDER:
+                            grep -in 'allocate' cdiaghg_preprocessed.f90 | head -60
+                        - SOLUTION:
+                            - the error was due to the wrong allocation of an array
+                                - the arrays need to be allocated as "ALLOCATE()", not as "info=ALLOCATE()"!!!!!!!
+                    
+                    - NEW ISSUE:
+                        - NVFORTRAN-S-0155-Could not resolve generic procedure 'diaghg'  (/home/marco/KS_SOLVER_CB/KS_Solvers/Davidson/cegterg.f90: 369)
+                            - this is due to the function interface defined in the file: laxlib_hi.h
+                                - so we should change all the function calls made in the code
+                                - MAYBE IT IS BETTER TO DEFINE THE HANDLE INSIDE THE FUNCTION BODY!!! 
+                                - NOO!! Our function cdiaghg works in a very different way: 
+                                    - has different rank for the arguments, so we need to define it inside the interface and add the subroutine 
+                                      to the existing ones!!!
+                                    - so we modify laxlib_hi.h to add a new function called laxlib_cdiaghg_batched
+                                    - the interface should be capable to call a specific function depending on the arguments and the type of the arguments passed into the call to diaghg!!!!
+                                    - we added the function to cdiaghg.f90!!!
+                                    - FURTHER ISSUE:
+                                        NVFORTRAN-S-0155-Derived type has not been declared - cublashandle (/home/marco/KS_SOLVER_CB/build/LAXlib/include/laxlib_hi.fh: 55)
+                                        0 inform,   0 warnings,   1 severes, 0 fatal for mp_global
+                                        - this means that the cublas handle in the interface gives problems!!!!
+                                        - THE MOST AFFORDABLE FIX IS TO DEFINE THE cublas HANDLE INSIDE THE BODY OF THE NEW SUBROUTINE IN cdiaghg AND REMOVE THE HANDLE AS AN ARGUMENT
+
+                    - ISSUE: NVFORTRAN-S-0070-Incorrect sequence of statements
+                        - it is due to the fact that the specification lines must always be before the executable parts!!
+                        - for example the arrays and variables definitions are specification parts, while an assignment or statement etc. is already an executable!!!!
+
+
+                    - The 3D arrays in cegterg need to be allocated on the gpu or at least copied from host to device!!!
+
+                    - WARNING ON cdiaghg:
+                        - CURRENTLY THE ARRAYS h_d, s_d, v_d are static arrays --> shoul we make them dynamic (allocatable) when we make them 3D?
+                        - FOR THE MOMENT WE LEAVE THEM AS STATIC ARRAYS!!
+
+
+
+REMEMBER :
+    - Compiling on the small machine cluster:
+    CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVP    -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON     -DQE_ENABLE_TEST=OFF
+
+
