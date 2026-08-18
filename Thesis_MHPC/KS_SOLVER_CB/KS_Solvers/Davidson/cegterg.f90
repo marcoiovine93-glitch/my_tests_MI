@@ -1,4 +1,4 @@
-!
+
 ! Copyright (C) 2001-2015 Quantum ESPRESSO group
 ! This file is distributed under the terms of the
 ! GNU General Public License. See the file `License'
@@ -11,13 +11,16 @@
 !   and now cegterg and regterg are used for both CPU and GPU execution.
 !   If you want to see the previous code checkout to commit: df3080b231c5daf52295c23501fbcaa9bfc4bfcc (on Thu Apr 21 06:18:02 2022 +0000)
 !
+! Modified for batched k-point processing
+!
+! M.Iovine : added the argument n_k as INTENT(IN)
 #define ZERO ( 0.D0, 0.D0 )
 #define ONE  ( 1.D0, 0.D0 )
 !
 !----------------------------------------------------------------------------
 SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
                     npw, npwx, nvec, nvecx, npol, evc, ethr, &
-                    e, btype, notcnv, lrot, dav_iter, nhpsi )
+                    e, btype, notcnv, lrot, dav_iter, nhpsi, i_batch, n_k )
   !----------------------------------------------------------------------------
   !
   ! ... iterative solution of the eigenvalue problem:
@@ -29,13 +32,20 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   !
 #if defined(__CUDA)
   use cublas
+  use cudafor
 #endif
   USE util_param,    ONLY : DP
   USE mp_bands_util, ONLY : intra_bgrp_comm, inter_bgrp_comm, root_bgrp_id,&
                             nbgrp, my_bgrp_id, me_bgrp, root_bgrp
   USE mp,            ONLY : mp_sum, mp_gather, mp_bcast, mp_size,&
                             mp_type_create_column_section, mp_type_free
-  USE device_memcpy_m, ONLY : dev_memcpy, dev_memset
+  USE device_memcpy_m, ONLY : dev_memcpy, dev_memset, dev_memcpy_async, &
+                              dev_memset_async !Fixed: import device memory management routines
+  USE mytime,          ONLY : clock_thread, clock_cuda_stream, cegterg_locker !Fixed: import thread private varibale
+  USE openacc,         ONLY : acc_get_cuda_stream
+#if defined(_OPENMP) 
+  USE omp_lib, only:  omp_set_lock, omp_unset_lock
+#endif
   !
   IMPLICIT NONE
   !
@@ -47,7 +57,9 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
     ! integer number of searched low-lying roots
     ! maximum dimension of the reduced basis set :
     !    (the basis set is refreshed when its dimension would exceed nvecx)
-    ! umber of spin polarizations
+    ! number of spin polarizations
+  INTEGER, INTENT(IN) :: i_batch
+    ! batch index for k-point batching
   COMPLEX(DP), INTENT(INOUT) :: evc(npwx*npol,nvec)
     !  evc contains the  refined estimates of the eigenvectors  
   REAL(DP), INTENT(IN) :: ethr
@@ -66,7 +78,8 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
     ! integer number of iterations performed
     ! number of unconverged roots
   INTEGER, INTENT(OUT) :: nhpsi
-    ! total number of indivitual hpsi
+    ! total number of individual hpsi
+  INTEGER, INTENT(IN) :: n_k !! M.Iovine : added the number of k-points as argument in input for the allocation of arrays
   !
   ! ... LOCAL variables
   !
@@ -88,8 +101,13 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
     ! Hamiltonian on the reduced basis
     ! S matrix on the reduced basis
     ! the eigenvectors of the Hamiltonian
+  COMPLEX(DP), ALLOCATABLE, DEVICE :: hc_batched(:,:,:), sc_batched(:,:,:), vc_batched(:,:,:) !! M.Iovine - we define the corresponding 3D arrays for batched calls directly on the device
+  REAL(DP), ALLOCATABLE, DEVICE :: ew_batched(:,:) !! M.Iovine - eigenvalues of the reduced Hamiltonian considered for batch on k-points directly on the device
+  COMPLEX(DP) :: maxv_hc, maxv_sc, maxv_vc !! M.Iovine - we define the variables for the maximum elements of the submatrix of dim. nbase x nbase 
+  INTEGER, ALLOCATABLE :: nbase_batched(:) !! M.Iovine - definition of array to store the nbase value of each k_point -> of each thread
+  INTEGER :: nbase_max, l !! M.Iovine - variable to store the maximum nbase found among the k-points and index l for the padding
   REAL(DP), ALLOCATABLE :: ew(:)
-  !$acc declare device_resident(ew)
+  !!$acc declare device_resident(ew)
     ! eigenvalues of the reduced hamiltonian
   COMPLEX(DP), ALLOCATABLE :: psi(:,:), hpsi(:,:), spsi(:,:)
     ! work space, contains psi
@@ -105,24 +123,41 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   INTEGER :: numblock
     ! chunking parameters
   INTEGER :: i,j,k
+  ! GPU stream management
+  INTEGER :: async_id
+  INTEGER(kind=cuda_stream_kind) :: mycudaStream, prova
+#if defined(__CUDA)
+  type(cublasHandle) :: myblasHandle(20) 
+  INTEGER :: istat_cublas
+#endif
+
   !
   REAL(DP), EXTERNAL :: MYDDOT_VECTOR_GPU
   !$acc routine(MYDDOT_VECTOR_GPU) vector
   !
   EXTERNAL  h_psi_ptr,    s_psi_ptr,    g_psi_ptr
-    ! h_psi_ptr(npwx,npw,nvec,psi,hpsi)
+    ! h_psi_ptr(npwx,npw,nvec,psi,hpsi,i_batch)
     !     calculates H|psi>
-    ! s_psi_ptr(npwx,npw,nvec,spsi)
+    ! s_psi_ptr(npwx,npw,nvec,spsi,i_batch)
     !     calculates S|psi> (if needed)
     !     Vectors psi,hpsi,spsi are dimensioned (npwx*npol,nvec)
-    ! g_psi_ptr(npwx,npw,notcnv,psi,e)
+    ! g_psi_ptr(npwx,npw,notcnv,psi,e,i_batch)
     !    calculates (diag(h)-e)^-1 * psi, diagonal approx. to (h-e)^-1*psi
     !    the first nvec columns contain the trial eigenvectors
   !
   nhpsi = 0
   CALL start_clock( 'cegterg' ); !write(*,*) 'start cegterg' ; FLUSH(6)
   !
-  !$acc data deviceptr(e)
+  ! Setup GPU stream using clock_thread (Fixed)
+  async_id = clock_thread
+
+#if defined(__CUDA)
+  ! Get cuda stream and link cublas to it
+  mycudaStream = clock_cuda_stream
+  istat_cublas = cublasCreate(myblasHandle(i_batch))
+  istat_cublas = cublasSetStream(myblasHandle(i_batch), mycudaStream)
+#endif
+  !$acc data deviceptr(e) async(async_id) 
   !
   IF ( nvec > nvecx / 2 ) CALL errore( 'cegterg', 'nvecx is too small', 1 )
   !
@@ -143,7 +178,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   END IF
   !
 #if ! defined(__CUDA)
-  ! compute the number of chuncks
+  ! compute the number of chunks
   numblock  = (npw+blocksize-1)/blocksize
 #endif
   !
@@ -153,13 +188,13 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   ALLOCATE( hpsi( npwx*npol, nvecx ), STAT=ierr )
   IF( ierr /= 0 ) &
      CALL errore( ' cegterg ',' cannot allocate hpsi ', ABS(ierr) )
-  !$acc enter data create(psi, hpsi)
+  !$acc enter data async(async_id) create(psi, hpsi)
   !
   IF ( uspp ) THEN
      ALLOCATE( spsi( npwx*npol, nvecx ), STAT=ierr )
      IF( ierr /= 0 ) &
         CALL errore( ' cegterg ',' cannot allocate spsi ', ABS(ierr) )
-     !$acc enter data create(spsi)
+     !$acc enter data async(async_id) create(spsi)
   END IF
   !
   ALLOCATE( sc( nvecx, nvecx ), STAT=ierr )
@@ -172,29 +207,36 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   IF( ierr /= 0 ) &
      CALL errore( ' cegterg ',' cannot allocate vc ', ABS(ierr) )
   ALLOCATE( ew( nvecx ), STAT=ierr )
+  !$acc enter data create(ew) async(async_id) 
   IF( ierr /= 0 ) &
      CALL errore( ' cegterg ',' cannot allocate ew ', ABS(ierr) )
   ALLOCATE( conv( nvec ), STAT=ierr )
   IF( ierr /= 0 ) &
      CALL errore( ' cegterg ',' cannot allocate conv ', ABS(ierr) )
   ALLOCATE( recv_counts(mp_size(inter_bgrp_comm)), displs(mp_size(inter_bgrp_comm)) )
+  !!M.Iovine - allocation on the device of 3D arrays for batching :
+  ALLOCATE(hc_batched(nvecx, nvecx, n_k))
+  ALLOCATE(sc_batched(nvecx, nvecx, n_k))
+  ALLOCATE(vc_batched(nvecx, nvecx, n_k))
+  ALLOCATE(ew_batched(nvecx, n_k))
+  ALLOCATE(nbase_batched(n_k))
   !
   notcnv = nvec
   nbase  = nvec
   conv   = .FALSE.
   !
   !$acc host_data use_device(evc, psi)
-  CALL dev_memcpy(psi, evc, (/ 1 , npwx*npol /), 1, &
+  CALL dev_memcpy_async(psi, evc, mycudaStream, (/ 1 , npwx*npol /), 1, &
                             (/ 1 , nvec /), 1)
   !$acc end host_data
   !
   ! ... hpsi contains h times the basis vectors
   !
-  CALL h_psi_ptr( npwx, npw, nvec, psi, hpsi ) ; nhpsi = nhpsi + nvec
+  CALL h_psi_ptr( npwx, npw, nvec, psi, hpsi, i_batch ) ; nhpsi = nhpsi + nvec
   !
   ! ... spsi contains s times the basis vectors
   !
-  IF ( uspp ) CALL s_psi_ptr( npwx, npw, nvec, psi, spsi )
+  IF ( uspp ) CALL s_psi_ptr( npwx, npw, nvec, psi, spsi, i_batch )
   !
   ! ... hc contains the projection of the hamiltonian onto the reduced 
   ! ... space vc contains the eigenvectors of hc
@@ -242,7 +284,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   !
   CALL mp_type_free( column_section_type )
   !
-  !$acc parallel vector_length(64) 
+  !$acc parallel vector_length(64) async(async_id) 
   !$acc loop gang 
   DO n = 1, nbase
      !
@@ -267,10 +309,10 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   IF ( lrot ) THEN
      !
      !$acc host_data use_device(vc)
-     CALL dev_memset(vc, ZERO, (/1, nbase/), 1, (/1, nbase/), 1)
+     CALL dev_memset_async(vc, ZERO, mycudaStream, (/1, nbase/), 1, (/1, nbase/), 1)
      !$acc end host_data
      !
-     !$acc parallel loop 
+     !$acc parallel loop async(async_id)
      DO n = 1, nbase
         !
         e(n) = REAL( hc(n,n) )
@@ -287,16 +329,60 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      !$acc host_data use_device(hc, sc, vc, ew)
      CALL start_clock( 'cegterg:diag' )
+     !call omp_set_lock(cegterg_locker) !!!! M.Iovine - We comment the line
+     !!!! M.IOvine - Changes for 3D arrays: 
+     nbase_batched(i_batch) = nbase !!!M.Iovine : we store the dimension for the current thread
+     hc_batched(:,:,i_batch) = hc
+     sc_batched(:,:,i_batch) = sc
+     vc_batched(:,:,i_batch) = vc
+     !$omp barrier
+     
+     !!! M.Iovine : we find the maximum for nbase_batched and nvecx_bat          ched :
+     nbase_max = maxval(nbase_batched)
+     
+     !!!M.Iovine - for each thread, we write the corresponding matricesin the batched arrays and we add the Padding:
+     if (nbase < nbase_max) then
+        !!! We find the maximum element of the nbasexnbase arrays:
+        maxv_hc = maxval(abs(hc_batched(1:nbase,1:nbase,i_batch)))
+        maxv_sc = maxval(abs(sc_batched(1:nbase,1:nbase,i_batch)))
+        maxv_vc = maxval(abs(vc_batched(1:nbase,1:nbase,i_batch)))
+        do l=(nbase+1), nbase_max
+            !!! VERIFY IF THE FOLLOWING IS NECESSARY!!
+            hc_batched(:,1:l,i_batch) = 0.D0
+            hc_batched(1:l,:,i_batch) = 0.D0
+            sc_batched(:,1:l,i_batch) = 0.D0
+            sc_batched(1:l,:,i_batch) = 0.D0
+            vc_batched(:,1:l,i_batch) = 0.D0
+            vc_batched(1:l,:,i_batch) = 0.D0
+            !!! Diagonal elements (we base them on the maximum element of the reduced matrices --> we multiply for 10^5 for faster convergence
+            hc_batched(l,l,i_batch) = l*maxv_hc*1e5
+            sc_batched(l,l,i_batch) = l*maxv_sc*1e5
+            vc_batched(l,l,i_batch) = l*maxv_vc*1e5
+        end do
+     end if
+     !$omp barrier
+
+     !$omp master
+     ALLOCATE(ew_batched(nvecx,n_k)) !!!! M.Iovine - added allocation of the output of the routine cusolverBatched
      IF( my_bgrp_id == root_bgrp_id ) THEN
-        CALL diaghg( nbase, nvec, hc, sc, nvecx, ew, vc, me_bgrp, root_bgrp, intra_bgrp_comm )
+        CALL diaghg( nbase_max, nvec, hc_batched, sc_batched, nvecx, ew_batched, vc_batched, n_k, me_bgrp, root_bgrp, intra_bgrp_comm )
      END IF
+
+     !$omp end master
+     
+     !!!! M.Iovine - We give the outputs of the subroutine to each thread/k-point:
+     ew = ew_batched(:,i_batch)
+     vc = vc_batched(:,:,i_batch)
+
+     !$acc wait(async_id) 
+     call omp_unset_lock(cegterg_locker)
      IF( nbgrp > 1 ) THEN
         CALL mp_bcast( vc, root_bgrp_id, inter_bgrp_comm )
         CALL mp_bcast( ew, root_bgrp_id, inter_bgrp_comm )
      ENDIF
      CALL stop_clock( 'cegterg:diag' )
      !
-     CALL dev_memcpy (e, ew, (/ 1, nvec /), 1 )
+     CALL dev_memcpy_async(e, ew, mycudaStream, (/ 1, nvec /), 1 )
      !$acc end host_data
      !
   END IF
@@ -324,7 +410,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
            ! ... multiplications to set a new basis vector (see below)
            !
            IF ( np /= n ) THEN
-             !$acc parallel loop 
+             !$acc parallel loop async(async_id)  
              DO i = 1, nvecx
                vc(i,np) = vc(i,n)
              END DO 
@@ -332,7 +418,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
            !
            ! ... for use in g_psi_ptr
            !
-           !$acc kernels 
+           !$acc kernels async(async_id) 
            ew(nbase+np) = e(n)
            !$acc end kernels 
            !
@@ -365,7 +451,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
 ! NB: must not call mp_sum over inter_bgrp_comm here because it is done later to the full correction
      !
 #if defined(__CUDA)
-     !$acc parallel loop collapse(3) 
+     !$acc parallel loop collapse(3) async(async_id) 
      DO np=1,notcnv
         DO ipol = 1, npol
            DO k=1,npwx
@@ -397,14 +483,14 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      CALL mp_sum( psi(:,nb1:nbase+notcnv), inter_bgrp_comm )
      !
      ! clean up garbage if there is any
-     IF (npw < npwx) CALL dev_memset(psi, ZERO, [npw+1,npwx], 1, [nb1, nbase+notcnv])
-     IF (npol == 2)  CALL dev_memset(psi, ZERO, [npwx+npw+1,2*npwx], 1, [nb1, nbase+notcnv])
+     IF (npw < npwx) CALL dev_memset_async(psi, ZERO, mycudaStream, [npw+1,npwx], 1, [nb1, nbase+notcnv])
+     IF (npol == 2)  CALL dev_memset_async(psi, ZERO, mycudaStream, [npwx+npw+1,2*npwx], 1, [nb1, nbase+notcnv])
      !
      CALL stop_clock( 'cegterg:update' )
      !
      ! ... approximate inverse iteration
      !
-     CALL g_psi_ptr( npwx, npw, notcnv, npol, psi(1,nb1), ew(nb1) )
+     CALL g_psi_ptr( npwx, npw, notcnv, npol, psi(1,nb1), ew(nb1), i_batch )
      !$acc end host_data
      !
      ! ... "normalize" correction vectors psi(:,nb1:nbase+notcnv) in
@@ -413,7 +499,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      ! ...         ew = <psi_i|psi_i>,  i = nbase + 1, nbase + notcnv
      !
-     !$acc parallel vector_length(96) 
+     !$acc parallel vector_length(96) async(async_id)  
      !$acc loop gang private(nbn)
      DO n = 1, notcnv
         !
@@ -437,7 +523,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !$acc end host_data
      !
 #if defined(__CUDA)
-     !$acc parallel loop collapse(3) 
+     !$acc parallel loop collapse(3) async(async_id) 
      DO i = 1,notcnv
         DO ipol = 1,npol
            DO k=1,npw
@@ -463,9 +549,9 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      ! ... here compute the hpsi and spsi of the new functions
      !
-     CALL h_psi_ptr( npwx, npw, notcnv, psi(1,nb1), hpsi(1,nb1) ) ; nhpsi = nhpsi + notcnv
+     CALL h_psi_ptr( npwx, npw, notcnv, psi(1,nb1), hpsi(1,nb1), i_batch ) ; nhpsi = nhpsi + notcnv
      !
-     IF ( uspp ) CALL s_psi_ptr( npwx, npw, notcnv, psi(1,nb1), spsi(1,nb1) )
+     IF ( uspp ) CALL s_psi_ptr( npwx, npw, notcnv, psi(1,nb1), spsi(1,nb1), i_batch )
      !
      ! ... update the reduced hamiltonian
      !
@@ -516,7 +602,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      nbase = nbase + notcnv
      !
-     !$acc parallel vector_length(64)
+     !$acc parallel vector_length(64) async(async_id) 
      !$acc loop gang
      DO n = 1, nbase
         !
@@ -540,11 +626,14 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      ! ... diagonalize the reduced hamiltonian
      !
+     call omp_set_lock(cegterg_locker) 
      !$acc host_data use_device(hc, sc, vc, ew)
      CALL start_clock( 'cegterg:diag' )
      IF( my_bgrp_id == root_bgrp_id ) THEN
         CALL diaghg( nbase, nvec, hc, sc, nvecx, ew, vc, me_bgrp, root_bgrp, intra_bgrp_comm )
      END IF
+     !$acc wait(async_id)
+     call omp_unset_lock(cegterg_locker) 
      IF( nbgrp > 1 ) THEN
         CALL mp_bcast( vc, root_bgrp_id, inter_bgrp_comm )
         CALL mp_bcast( ew, root_bgrp_id, inter_bgrp_comm )
@@ -554,7 +643,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      ! ... test for convergence
      !
-     !$acc parallel loop copy(conv(1:nvec)) copyin(btype(1:nvec))
+     !$acc parallel loop copy(conv(1:nvec)) copyin(btype(1:nvec)) async(async_id)
      DO i = 1, nvec
        IF(btype(i) == 1) THEN
          conv(i) = ( ( ABS( ew(i) - e(i) ) < ethr ) )
@@ -569,7 +658,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      notcnv = COUNT( .NOT. conv(:) )
      !
      !$acc host_data use_device(ew)
-     CALL dev_memcpy (e, ew, (/ 1, nvec /) )
+     CALL dev_memcpy_async (e, ew, mycudaStream, (/ 1, nvec /) )
      !$acc end host_data
      !
      ! ... if overall convergence has been achieved, or the dimension of
@@ -615,14 +704,14 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
         ! ... refresh psi, H*psi and S*psi
         !
         !$acc host_data use_device(evc, psi, hpsi, spsi, vc)
-        CALL dev_memcpy(psi, evc, (/ 1, npwx*npol /), 1, &
+        CALL dev_memcpy_async(psi, evc, mycudaStream, (/ 1, npwx*npol /), 1, &
                                       (/ 1, nvec /), 1)
         !
         IF ( uspp ) THEN
            !
            CALL ZGEMM( 'N','N', kdim, nvec, my_n, ONE, spsi(1,n_start), kdmx, vc(n_start,1), nvecx, &
                        ZERO, psi(1,nvec+1), kdmx)
-           CALL dev_memcpy(spsi, psi(:,nvec+1:), &
+           CALL dev_memcpy_async(spsi, psi(:,nvec+1:), mycudaStream,&
                                         (/1, npwx*npol/), 1, &
                                         (/1, nvec/), 1)
            CALL mp_sum( spsi(:,1:nvec), inter_bgrp_comm )
@@ -631,7 +720,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
         !
         CALL ZGEMM( 'N','N', kdim, nvec, my_n, ONE, hpsi(1,n_start), kdmx, vc(n_start,1), nvecx, &
                     ZERO, psi(1,nvec+1), kdmx )
-        CALL dev_memcpy(hpsi, psi(:,nvec+1:), &
+        CALL dev_memcpy_async(hpsi, psi(:,nvec+1:), mycudaStream,&
                                         (/1, npwx*npol/), 1, &
                                         (/1, nvec/), 1)
         CALL mp_sum( hpsi(:,1:nvec), inter_bgrp_comm )
@@ -646,7 +735,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
         !sc(1:nbase,1:nbase) = ZERO
         !vc(1:nbase,1:nbase) = ZERO
         !
-        !$acc kernels 
+        !$acc kernels  async(async_id) 
         DO n = 1, nbase
            hc(n,n) = CMPLX( e(n), 0.0_DP ,kind=DP)
            sc(n,n) = ONE
@@ -669,6 +758,7 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
   END DO iterate
   !
+  !$acc exit data delete(ew) async(async_id) 
   DEALLOCATE( recv_counts )
   DEALLOCATE( displs )
   DEALLOCATE( conv )
@@ -676,17 +766,25 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   DEALLOCATE( vc )
   DEALLOCATE( hc )
   DEALLOCATE( sc )
+  DEALLOCATE( ew_batched ) !!M.Iovine - Deallocation of the arrays for the bacthed NVIDIA routines
+  DEALLOCATE( vc_batched ) 
+  DEALLOCATE( hc_batched ) 
+  DEALLOCATE( sc_batched )
   !
   IF ( uspp ) THEN
-     !$acc exit data delete(spsi)
+     !$acc exit data async(async_id) delete(spsi)
      DEALLOCATE( spsi )
   END IF
   !
-  !$acc exit data delete(psi, hpsi)
+  !$acc exit data async(async_id) delete(psi, hpsi)
   DEALLOCATE( hpsi )
   DEALLOCATE( psi )
   !
   !$acc end data 
+  ! Cleanup (Fixed)
+#if defined(__CUDA)
+  istat_cublas = cublasDestroy(myblasHandle(i_batch))  
+#endif
   !
   CALL stop_clock( 'cegterg' ); !write(*,*) 'stop cegterg' ; FLUSH(6)
   !call print_clock( 'cegterg' )
@@ -699,13 +797,12 @@ SUBROUTINE cegterg( h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   RETURN
   !
 END SUBROUTINE cegterg
-
 !
 !  Subroutine with distributed matrixes
 !  (written by Carlo Cavazzoni)
 !
 !----------------------------------------------------------------------------
-SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &  
+SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
                     npw, npwx, nvec, nvecx, npol, evc, ethr, &
                     e, btype, notcnv, lrot, dav_iter, nhpsi )
   !----------------------------------------------------------------------------
@@ -778,7 +875,7 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
     ! the product of S and psi
   LOGICAL, ALLOCATABLE :: conv(:)
     ! true if the root is converged
-  REAL(DP) :: empty_ethr 
+  REAL(DP) :: empty_ethr
     ! threshold for empty bands
   INTEGER :: idesc(LAX_DESC_SIZE), idesc_old(LAX_DESC_SIZE)
   INTEGER, ALLOCATABLE :: irc_ip( : )
@@ -799,7 +896,7 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   !
   EXTERNAL  h_psi_ptr, s_psi_ptr, g_psi_ptr
     ! h_psi_ptr(npwx,npw,nvec,psi,hpsi)
-    !     calculates H|psi> 
+    !     calculates H|psi>
     ! s_psi_ptr(npwx,npw,nvec,psi,spsi)
     !     calculates S|psi> (if needed)
     !     Vectors psi,hpsi,spsi are dimensioned (npwx,nvec)
@@ -862,7 +959,7 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   !
   IF( la_proc ) THEN
      !
-     ! only procs involved in the diagonalization need to allocate local 
+     ! only procs involved in the diagonalization need to allocate local
      ! matrix block.
      !
      ALLOCATE( vl( nx , nx ), STAT=ierr )
@@ -920,15 +1017,15 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   !
   CALL start_clock( 'cegterg:init' )
 
-  CALL compute_distmat( hl, psi, hpsi ) 
+  CALL compute_distmat( hl, psi, hpsi )
   !
   IF ( uspp ) THEN
      !
-     CALL compute_distmat( sl, psi, spsi ) 
+     CALL compute_distmat( sl, psi, spsi )
      !
   ELSE
      !
-     CALL compute_distmat( sl, psi, psi )  
+     CALL compute_distmat( sl, psi, psi )
      !
   END IF
   CALL stop_clock( 'cegterg:init' )
@@ -984,8 +1081,8 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      CALL g_psi_ptr( npwx, npw, notcnv, npol, psi(1,nb1), ew(nb1) )
      !
-     ! ... "normalize" correction vectors psi(:,nb1:nbase+notcnv) in 
-     ! ... order to improve numerical stability of subspace diagonalization 
+     ! ... "normalize" correction vectors psi(:,nb1:nbase+notcnv) in
+     ! ... order to improve numerical stability of subspace diagonalization
      ! ... (cdiaghg) ew is used as work array :
      !
      ! ...         ew = <psi_i|psi_i>,  i = nbase + 1, nbase + notcnv
@@ -1033,7 +1130,7 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
      !
      CALL start_clock( 'cegterg:overlap' )
      !
-     ! we need to save the old descriptor in order to redistribute matrices 
+     ! we need to save the old descriptor in order to redistribute matrices
      !
      idesc_old = idesc
      !
@@ -1129,7 +1226,7 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
         !
         CALL start_clock( 'cegterg:last' )
         !
-        CALL refresh_evc()       
+        CALL refresh_evc()
         !
         IF ( notcnv == 0 ) THEN
            !
@@ -1159,7 +1256,7 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
         IF ( uspp ) THEN
            !
            CALL refresh_spsi()
-           ! 
+           !
         END IF
         !
         CALL refresh_hpsi()
@@ -1213,7 +1310,7 @@ SUBROUTINE pcegterg(h_psi_ptr, s_psi_ptr, uspp, g_psi_ptr, &
   IF ( uspp ) DEALLOCATE( spsi )
   !
   DEALLOCATE( hpsi )
-  DEALLOCATE( psi )  
+  DEALLOCATE( psi )
   !
   CALL stop_clock( 'cegterg' )
   !call print_clock( 'cegterg' )
@@ -1237,7 +1334,7 @@ CONTAINS
         DO i = 1, idesc(LAX_DESC_NC)
            distmat( i, i ) = ( 1_DP , 0_DP )
         END DO
-     END IF 
+     END IF
      RETURN
   END SUBROUTINE set_to_identity
   !
@@ -1269,14 +1366,14 @@ CONTAINS
               !
               IF ( .NOT. conv(n) ) THEN
                  !
-                 ! ... this root not yet converged ... 
+                 ! ... this root not yet converged ...
                  !
                  np  = np  + 1
                  npl = npl + 1
                  IF( npl == 1 ) ic_notcnv( ipc ) = np
                  !
                  ! ... reorder eigenvectors so that coefficients for unconverged
-                 ! ... roots come first. This allows to use quick matrix-matrix 
+                 ! ... roots come first. This allows to use quick matrix-matrix
                  ! ... multiplications to set a new basis vector (see below)
                  !
                  notcnv_ip( ipc ) = notcnv_ip( ipc ) + 1
@@ -1290,7 +1387,7 @@ CONTAINS
                  ! ... for use in g_psi_ptr
                  !
                  ew(nbase+np) = e(n)
-                 !   
+                 !
               END IF
               !
            END DO
@@ -1416,19 +1513,19 @@ CONTAINS
               IF( ipr-1 == idesc(LAX_DESC_MYR) .AND. ipc-1 == idesc(LAX_DESC_MYC) .AND. la_proc ) THEN
                  !
                  !  this proc sends his block
-                 ! 
+                 !
                  CALL mp_bcast( vl(:,1:nc), root, ortho_parent_comm )
                  CALL ZGEMM( 'N', 'N', kdim, nc, nr, ONE, &
                           psi(1,ir), kdmx, vl, nx, beta, evc(1,ic), kdmx )
               ELSE
                  !
                  !  all other procs receive
-                 ! 
+                 !
                  CALL mp_bcast( vtmp(:,1:nc), root, ortho_parent_comm )
                  CALL ZGEMM( 'N', 'N', kdim, nc, nr, ONE, &
                           psi(1,ir), kdmx, vtmp, nx, beta, evc(1,ic), kdmx )
               END IF
-              ! 
+              !
 
               beta = ONE
 
@@ -1474,19 +1571,19 @@ CONTAINS
               IF( ipr-1 == idesc(LAX_DESC_MYR) .AND. ipc-1 == idesc(LAX_DESC_MYC) .AND. la_proc ) THEN
                  !
                  !  this proc sends his block
-                 ! 
+                 !
                  CALL mp_bcast( vl(:,1:nc), root, ortho_parent_comm )
                  CALL ZGEMM( 'N', 'N', kdim, nc, nr, ONE, &
                           spsi(1,ir), kdmx, vl, nx, beta, psi(1,nvec+ic), kdmx )
               ELSE
                  !
                  !  all other procs receive
-                 ! 
+                 !
                  CALL mp_bcast( vtmp(:,1:nc), root, ortho_parent_comm )
                  CALL ZGEMM( 'N', 'N', kdim, nc, nr, ONE, &
                           spsi(1,ir), kdmx, vtmp, nx, beta, psi(1,nvec+ic), kdmx )
               END IF
-              ! 
+              !
               beta = ONE
 
            END DO
@@ -1534,19 +1631,19 @@ CONTAINS
               IF( ipr-1 == idesc(LAX_DESC_MYR) .AND. ipc-1 == idesc(LAX_DESC_MYC) .AND. la_proc ) THEN
                  !
                  !  this proc sends his block
-                 ! 
+                 !
                  CALL mp_bcast( vl(:,1:nc), root, ortho_parent_comm )
                  CALL ZGEMM( 'N', 'N', kdim, nc, nr, ONE, &
                           hpsi(1,ir), kdmx, vl, nx, beta, psi(1,nvec+ic), kdmx )
               ELSE
                  !
                  !  all other procs receive
-                 ! 
+                 !
                  CALL mp_bcast( vtmp(:,1:nc), root, ortho_parent_comm )
                  CALL ZGEMM( 'N', 'N', kdim, nc, nr, ONE, &
                           hpsi(1,ir), kdmx, vtmp, nx, beta, psi(1,nvec+ic), kdmx )
               END IF
-              ! 
+              !
               beta = ONE
 
            END DO
@@ -1566,7 +1663,7 @@ CONTAINS
   SUBROUTINE compute_distmat( dm, v, w )
      !
      !  This subroutine compute <vi|wj> and store the
-     !  result in distributed matrix dm 
+     !  result in distributed matrix dm
      !
      INTEGER :: ipc, ipr
      INTEGER :: nr, nc, ir, ic, root
@@ -1580,7 +1677,7 @@ CONTAINS
      !
      !  Only upper triangle is computed, then the matrix is hermitianized
      !
-     DO ipc = 1, idesc(LAX_DESC_NPC) !  loop on column procs 
+     DO ipc = 1, idesc(LAX_DESC_NPC) !  loop on column procs
         !
         nc = nrc_ip( ipc )
         ic = irc_ip( ipc )
