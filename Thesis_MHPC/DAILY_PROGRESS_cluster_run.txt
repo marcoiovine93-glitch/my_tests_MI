@@ -389,6 +389,230 @@ nvfortran -Mpreprocess -mp -acc=gpu -gpu=cc121 -cudalib=cusolver -o script_diag 
 
 REMEMBER :
     - Compiling on the small machine cluster:
-    CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVP    -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON     -DQE_ENABLE_TEST=OFF
+    CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build   -DBLA_VENDOR=NVPL    -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON     -DQE_ENABLE_TEST=OFF
+
+
+- RUNTIME ISSUE:
+    - ERROR: "But I couldn't open the help file:
+    /proj/nv/libraries/Linux_aarch64/26.3/hpcx-13/293877-rel-1/comm_libs/13.1/hpcx/hpcx-2.25.1/ompi/share/openmpi/help-opal-runtime.txt: No such file or directory.  Sorry! "
+    SOLUTION:
+    - export OPAL_PREFIX=/opt/nvidia/hpc_sdk/Linux_aarch64/26.3/comm_libs/13.1/hpcx/hpcx-2.25.1/ompi
+    - GOT STUCKED AFTER RUNNING WITH: ./cb_davidson.x < ../../examples/si2_11_points.in
+        - in the main program (cb_davidson_main) there is a reference to MPI --> so we run with:
+            - mpirun -np 1 ./cb_davidson.x < ../../examples/si2_11_points.in
+        - ISSUE:
+            -Accelerator Fatal Error: call to cuInit returned error 805 (CUDA_ERROR_MPS_CONNECTION_FAILED): MPS client failed to connect to the 
+            MPS control daemon or the MPS server
+            --------------------------------------------------------------------------
+            Primary job  terminated normally, but 1 process returned
+            a non-zero exit code. Per user-direction, the job has been aborted.
+            - SOLUTION:
+                - to investigate: 
+                    nvidia-smi -q -d COMPUTE  : nvidia-smi gives infos about the GPU state (driver, memory, running processes etc.
+                                                -q : show in query mode, not in the default summary table way
+                                                -d COMPUTE : show the compute section (remember that the cc21 in the comp. command stands for the 
+                                                             compute capabilities
+                        - Response: Compute Mode: Default --> This means that the CUDA contexts can be created by all the processes at the same time
+                                                              w (they can call cuInit) - other possible values are Exclusive_Process (only one CUDA
+                                                              context can be created) - Prohibited (CUDA context creation not allowed)
+                    ls -la /tmp/nvidia-mps 2>&1   : shows the properties also of hidden files of the MPS folder and print in the terminal whatever 
+                                                    error
+                    ls -la /tmp/nvidia-mps-log 2>&1   : shows the properties also of hidden files of the MPS folder and print in the terminal 
+                                                        whatever error
+                - the problem was the temporary data owned by qespresso user on nvidia-mps
+                - we run: export CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps-$USER
+                - WHY MPS is always turned ON ?????
+
+        - now we can run by launching in the build/bin/ directory:
+                  mpirun -np 1 ./cb_davidson.x < ../../examples/si2_11_points.in
+            - ISSUE :
+
+                parallel MPI defs : np=            1 nb=            1   nd=            0
+                nks >
+                Running cb_davidson_main with the following parameters:
+                nk_batches =             2
+                In initialize_laxlib_cuda_stream, thread     1         279749969281552
+                Initialized default stream in thread     0    1         279749969281552
+                In initialize_laxlib_cuda_stream, thread     2         279749969281880
+                Initialized default stream in thread     1    2         279749969281880
+                36           36           36        46656
+                ngm =        15353
+                npwx =         1924
+                First loop, batch     2    2    1
+                First loop, batch     1    1    0
+
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                Error in routine  cdiaghg_gpu (1):
+                cusolverDnZpotrfBatched
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                -  
+                - SOLUTION: 
+                    - the problem of cusolverzptrfBatched was due to the fact that the line:
+                        cusolver_handle(threads) 
+                        was placed after the kernel call !!! --> failure
+                - NEW ISSUE:
+                    - /home/marco/KS_SOLVER_CB/LAXlib/cdiaghg.f90: [ laxlib_cdiaghg_gpu_batched_() ]
+                    ...
+                    707 
+                    708     !!!! M.Iovine - We need to order in acending way the eigenvalues
+                    709     !!!! and the corresponding eigenvectors:
+                    ==>   710     do ik = 1, n_k
+                    711         do b = 1, n-1
+                    712             ind_min = b
+                    713             do k = b,n
+
+                    BFD: DWARF error: section .debug_info is larger than its filesize! (0x444305 vs 0x390648)
+                - CAUSE: THE DO LOOP WAS DONE ENTIRELY ON THE HOST, DESPITE THE FACT THAT ALL THE arrays are CUDA Fortran device arrays
+                        - the plain do loops are executed in the host memory, not in the GPU one
+                        - so we needed to add the line:
+                            !$cuf kernel do(1) <<<*,*,0,laxlib_cuda_stream>>>
+                - NEW ISSUE:
+                    - SEGMENTATION FAULT
+                    - the problem was in the padding part --> we cannot do: maxval(abs()) on thr device!!
+                - ISSUE REALLY BIG: 
+                    - 0: copyin Memcpy (dev=0xff95f9600000, host=0xff958c005630, size=58392576) FAILED: 700(an illegal memory access was encountered)
+                    - HOW to debug? with sanitizer!!
+                        - mpirun -np 1 compute-sanitizer --tool memcheck ./cb_davidson.x < ../../examples/si2_11_points.in
+                        - THE CORRECT COMMAND TO BE RUN IS:
+                          mpirun -np 1 \
+                         --mca opal_cuda_support 0 \
+                         --mca osc ^ucx \
+                         --mca pml ob1 \
+                         --mca btl self,tcp \
+                         compute-sanitizer --tool memcheck --report-api-errors no ./cb_davidson.x < ../../examples/si2_11_points.in
+
+                    - --mca opal_cuda_support 0 : prevents OpenMPI to query CUDA driver funxtions during data transfers
+                    - --mca osc ^ucx : disables the UCX One-sided communication 
+                    - --mca btl self,tcp : point-to-point network messaging is allowed only between the tranport layers self and tcp
+                    - --report-api-errors no : focus on GPU kernel memory access
+                    - WE GET THE ERROR:
+                    Invalid __global__ read of size 8 bytes
+                    =========     at laxlib_cdiaghg_gpu_batched_712+0x6b80 in cdiaghg.f90:727
+                    =========     by thread (10,0,0) in block (0,0,0)
+                    =========     Access to 0xf53caaffe600 is out of bounds
+                    =========     and is 1 bytes after the nearest allocation at 0xf53caaffe400 of size 512 bytes
+                    - at cdiaghg.f90:727 we have a slicing (min_col_arr(:,n;ik) inside a loop that is running on the GPU
+                    - the problem is that on the GPU, a single thread creates a temporary array on its GPU stack and that is limited to 512 bytes (32 double complex numbers) --> so we have a buffer overflow!
+                    - so we substitute the slicing with a do loop
+
+                   - ANOTHER ISSUE:
+                        - the n_k we set and passed to the cegterg was wrong --> it should be the last element of the inner loop inside cb_davidson_main
+                   - ISSUE (for n_batch =1) :
+                        - the autovalues are all NaN for each k point!
+                            - we added !$omp barrier in cegterg, after the call to diaghg done by the master thread --> in theory the threads should wait the master to complete the computation?
+                        - we needed to add debug print pieces of code!
+                        - WE ADDED THE cublasStream inside the cdiaghg
+                        - we added an acc wait inside the cegterg and 
+                          also a cudaSynchronize --> NOT SOLVED
+                        - ew_batched has no NaN or Inf
+                        - neither the arrays in cdiaghg have NaN or Inf
+                        - THE MOST IMPORTANT ISSUE IS THAT THE METHOD
+                          DOESN'T CONVERGE !!!
+                        - WAIT - REALLY IMPORTANT:
+                            - ALSO THE OLD CODE GIVES THE NaN!!!
+                            - NOW THE MPS IS NOT A PROBLEM ANYMORE!!!
+                        - after having built, go to build directory and run : ccmake .
+                            - then go to the MPI flag and type enter --> type c --> e --> q (quit)
+                        - We added other pieces to check Inf and NaN values in the eigenvectors matrix
+                        - We added a debugging piece also after the preconditioning part --> we added it to check the NaN values after 
+                          the preconditioning :
+                            - RESULT : 
+                                - CRITICAL: NaN detected in psi after preconditioning at i_batch = 1
+                                  Warning: ieee_divide_by_zero is signaling
+                                  Warning: ieee_inexact is signaling
+                                  cegterg: psi infected with NaN
+                                - SO after the preconditioning we already have the NaN
+                            - SO WE PUT A DEBUG AFTER THE OpenACC region corresponding to the cdiaghg call and we get, printing the 
+                              left top corner of the e_w:
+                              - ALL ZEROS!!!! --> IF WE HAVE ALL ZEROS, THE PRECONDITIONING SUBTRACTS ZERO TO THE FIRST KINETIC ENERGY ELEMENT,
+                                WHICH IS ZERO --> NaN !!!1!
+                            - WE TRIED TO CONVERT ALL THE 3D ARRAYS TO OPENACC!!
+                                - IMPORTANT:    
+                                    - IN THE PREVIOUS APPROACH WE TRIED TO DO A SLICING ASSIGNMENT OF A DEVICE ARRAY TO ANOTHER ONE INSIDE A OPENACC
+                                      REGION --> THIS IS NOT DOABLE !!!! --> THEY ACT IN A DIFFERENT WAY??
+                                - REMEMBER:
+                                    - the !$acc update host( ) statement is not valid for device resident arrays, because they don't reside on the 
+                                      host and don't have corrresponding data on the host
+                                - WE FACED A SUBTLE ISSUE:
+                                    - WE SAW THAT OUR SIMMETRY CONTROL AFTER THE CHOLESKY FACTORIZATION SHOWED REALLY OSCILLATING VALUES
+                                    - WE ADDED A CUDASYNCHRONIZE TO MAKE SURE THE NEXT TASKS TO BE DONE AFTER THE STREAM ASYNCRONOUS EXECUTION
+                                      ARRIVED AT THAT SPECIFIC POINT
+                                    - OpenACC directives:
+                                        - !$acc wait:
+                                            - blocks the Host thread until all OpenACC queues on the GPU are idle!
+                                        - !$acc wait(async_id):
+                                            - blocks the Host thread until operations in queue are finished!
+                                        - cudaDeviceSynchronize() :
+                                            - use it in subroutines/modules where there are calls to libraries routines!
+                                            - we can use it to avoid race conditions for example between updates and math computations!!
+                                    - check of ew before the iterations:
+                                        - OK!!
+                                    - check of e before the iterations:
+                                        - OK!
+                                    - check done in the call of the next call of the not batched diaghg:
+                                        - NaN!!!!
+                                        - REASON: PROBABLY IT IS DUE TO CHANGES MADE TO THE STREAM OR HANDLE OR WHATEVER DONE BY THE BATCHED CALL
+                                                  AND NOT RESET PROPERLY AFTER!!!
+                                        - WE INTRODUCE A NEW HANDLE IN THE BATCHED SUBROUTINE!
+                                        - WEDON'T DESTROY THE NEW CREATED HANDLE???
+                                        - ATTENTION!: it is not related to our bug, but the MPBCAST in the cdiaghg_batched is not done properly
+                                        - AFTER HAVING INTRODUCED A NEW HANDLE, THE ISSUE PERSISTS
+                                        - WE investigated:
+                                            - hc is ok before iterations
+                                            - ew and e are ok before iterations
+                                            - in the next cdiaghg call we already have NaN
+                                            - BUT vc has ZERO VALUES!!! --> the strange thing is that now it has not all zero values in the cdiaghg,
+                                              but in he cegterg it is still all zeros!!!
+                                                - we solved it byexplicitly updating vd inside cdiaghg with a proper loop!
+                                            - FURTHER ISSUE:
+                                                - STILL NOT CONVERGENT:
+                                                    - FROM AN ADDED MATHEMATICAL CHECK BASED ON RESIDUAL, IT SEEMS THAT THE COMPUTATION INSIDE
+                                                      cdiaghg IS WRONG!!!
+                                                    - we used the info = cusolverDnXsyevjSetSortEig(syevj_params, 1) in cdiaghg
+                                                      instead of the manual ordering!!
+                                                    - THE ISSUE IS STILL THERE
+                                                    - WE inserted two debug prints: 1 for the print of vc and one for ew
+                                                        - we did it for the old working version (no batched kernel call) and for the batched one
+                                                        - we see, comparing the prints, that :
+                                                            - WE NEED TO DO FURTHER VERIFICATIONS ABOUT THE FOLLOWING 2:
+                                                                - EIGENVALUES : CORRESPOND!! (up to nbase) --> THEY DON?T CORRESPOND!!!!!
+                                                                        - THE FIRST nvec are coincident!!
+                                                                        - ATTENTION!! : when we print an array, like in this case, fortran 
+                                                                                        prints the real and imaginary part one after the other
+                                                                                        so the first 128 elements are equal --> the first 64(nvec)
+                                                                                        elements are equal!
+                                                                        - MAYBE THE PROBLEM CAN BE RELATED TO THE FACT THAT THE ldh DIMENSION
+                                                                          IS TOO BIG WITH RESPECT TO nbase !!!
+                                                                - EIGENVECTORS : DIFFER!! --> they differ from a phase  shift, normal for Blocks theorem
+                                                                                          representation of wave functions!!
+                                                            - FROM A COMPARISON OF THE SUBMATRIX with the first 10 rows and 10 columns, it emerges
+                                                              that the difference consists in a phase shift in the complex numbers (the module)
+                                                              is the same!!!
+                                                            - e : it is the same for old and new!!!
+                                                            - ATTENTION !!!
+                                                                - the batched and not batched kernel calls manage the memory in a different way
+                                                                    - probably the problem is that the leading dimension ldh is too big with 
+                                                                      respect to n --> we added new 3d arrays smaller --> THE PROBLEM PERSISTS!
+
+
+                                           - IMPORTANT THING ABOUT copy between entities on the device:
+                                                - IF AN ARRAY IS DECLARED AS DEVICE RESIDENT IN OPENACC, IT CANNOT BE COPIED WITH THE SLICING:
+                                                    hc(:,i) = jh(:,j) 
+                                                - BECAUSE IT IS NECESSARY TO DO A LOOP WTH OPEN ACC CLAUSES AND DIRECTIVES!!!
+                                           
+                                           - IMPORTANT!!!!:
+                                                - in the cegterg.f90, the approach is based on OpenACC, this is done also for the asynchronous
+                                                  execution --> this is why the equivalence between ACC queues and CUDA Streams was introduced
+                                                - this is the reason why in the cegterg.f90 we don't see at all the CudaDevice Synchornize() 
+                                                  syntax!!!
+
+                                           - IMPORTANT!!! : ew is not defined as device resident --> it is defined also on the host maybe because
+                                                            it is necessary also for the output print!!!
+                                           
+                                           - IMPORTANT!! : if we define an attribute on the device, or an entity with SAVE, this means that the 
+                                                           entity will be available for HOW MUCH TIME AND UNTIL WHAT ACTION/TASK ??
+
+                                           - Inefficiency : we created a new csolver Handle for the batched subroutine of cdiaghg --> probably it
+                                                            is still possible to use the same used by the not batched one!!!
 
 
