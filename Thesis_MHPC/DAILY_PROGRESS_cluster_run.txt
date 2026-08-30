@@ -591,9 +591,165 @@ REMEMBER :
                                                             - e : it is the same for old and new!!!
                                                             - ATTENTION !!!
                                                                 - the batched and not batched kernel calls manage the memory in a different way
+                                                                    - probably the batched APIs rely on the shared memory and thread blocks for
+                                                                      the single matrices!
                                                                     - probably the problem is that the leading dimension ldh is too big with 
                                                                       respect to n --> we added new 3d arrays smaller --> THE PROBLEM PERSISTS!
+                                                            - WARNING : IT seems that, whatever change we make, the result remains the same
+                                                                - MAYBE THERE IS A PROBLEM OF BATCHED APIS WITH device resident arrays???
+                                                                - SO WE DECIDED TO CHANGE APPROACH AND ERASE THE device resident one, defining
+                                                                  the arrays on the host and copying them to the device with a data create
+                                                                - BUT NOW WE FACE THE ISSUE:
+                                                                     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                                                     Error in routine  cdiaghg_gpu (7):
+                                                                        cusolverDnZheevjBatched failed
+                                                                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+                                                                      stopping ...
+                                                                     Warning: ieee_inexact is signaling
+                                                                        1
+                                                                     Failing in Thread:1
+                                                                     Accelerator Fatal Error: call to cuCtxSetCurrent returned error 700 
+                                                                     (CUDA_ERROR_ILLEGAL_ADDRESS): Illegal address during kernel execution
+                                                                 - WE GOT MORE INFORMATIONS BY EXPORTING THE CUSOLVER FOR MORE INFO:
+                                                                    export CUSOLVER_LOGLEVEL=5
+                                                                    export CUSOLVERDN_LOGLEVEL=5
+                                                                 - and then:
+                                                                   compute-sanitizer --tool memcheck ./cb_davidson.x < ../../example/si2_11_points.in
+                                                                    - WE GOT the error in log_error_not_device_resident_approach.txt:
+                                                                        - IT SEEMS THAT THE CUDA THREADS FROM 1 TO 32 DON'T HAVE ISSUES
+                                                                        - so probably there is a limit of first and second size of the arrays 
+                                                                          on which the comp. is 
+                                                                          done, that can be maximum = 32 ??
+                                                                        - BUT WAIT: IN THE cdiaghg, we used the API: 
+                                                                            - cusolverDnZheevjBatched
+                                                                            - BUT THERE IS ALSO THE API:
+                                                                                - cusolverDnXsyevBatched !!!!!!! 
+                                                                                    - it has a limit for ld x n x batch_size = 2e31 - 1  = INT32_MAX!
+                                                                                - BUT I'M NOT SURE IT IS AVAILABLE FOR OUR CUFORTRAN VERSION!!! 
+                                                                    - NOOOOOOO!!!!!!!!!
+                                                                        - the device resident approach GAVE ERROR FOR A PROBLEM OF asinc_id
+                                                                          and synchronization!!!!
+                                                                        - in fact, after having forced the system to launch the kernel sequentially,
+                                                                          it worked!!!!
+                                                                        - how to do that?? --> by launching:
+                                                                            export CUDA_LAUNCH_BLOCKING=1
+                                                                    - SO NEXT STEP: UNDERSTAND THE ASYNC_ID AND HOW TO MAKE IT WORK WITH MY
+                                                                                    HANDLE!!!!!! --> WHICH I INCLUDED IN THE new subroutine 
+                                                                                    in the cdiaghg.f90 file !!!
+                                                                        - we tried to initialize the _comp arrays and then putting as Handle 
+                                                                          in the batched routine the old one --> FAILED
+                                                                        - we tried increasing the leading dimension of the 3d arrays and launching
+                                                                          the same --> FAILED
+                                                                        - we did all the tests with a cudaDeviceSynchronize after each step of
+                                                                          subroutine, but we failed
+                                                                        - test with new handle in the subroutine:
+                                                                            - FAILED!!
+                                                                        - test with new handle destroyed for each ke point: FAILED
+                                                                        - test with adding an update of the arrays of matrices for hc and sc:
+                                                                    - Things to do 25/08 :
+                                                                        - TEST THE SUBROUTINE in cdiaghg.f90 batched with a known matrix/vector
+                                                                        - run the code on Leonardo!!! --> because the Spark machine has uninfied
+                                                                          addresses and probably bypasses some mistakes!!!
+                                                                        - PAY A LOT OF ATTENTION TO THE part WITH devmemcpy!!!
+                                                                            --> in that part there is the synchronization!!!!
+                                                                            - IT HAS TO BE INCLUDED IN A host data use device !!!!
+                                                                    - 27/08 :
+                                                                        - AHHHHHHHHHHHHHHHHHHHH SOLUTION TO THE FUCKING PROBLEM !!!!!!
+                                                                            - the problem was related to the Cublas Handle in the subroutine
+                                                                            - THE FACT THAT THE CuBlas Handle WAS DESTROYED INSIDE THE 
+                                                                              batched subroutine MADE THE ERROR TO COME UP!!!
+                                                                            - BUT WHY THIS IS A SYNCHRONIZATION ISSUE, DESPITE THE FACT THAT I HAVE
+                                                                              ONLY ONE THREAD (SO ONE STREAM)?
+                                                                                - PROBABLY IT IS DUE TO THE FACT THAT WE HAVE FOR SURE A CUDA STREAM
+                                                                                  (OR OPENACC QUEUE, IN THIS CASE IT IS EQUIVALENT), BUT THIS 
+                                                                                  ASYNCHRONOUS EXECUTION NEEDS TO BE DONE TOGETHER WITH TASKS
+                                                                                  DONE SYNCHRONOUSLY --> SO FOR EXAMPLE FOR k-point = 1, I 
+                                                                                  CREATE THE CUBLAS HANDLE FOR A CPU THREAD (IN THIS CASE IT IS 
+                                                                                  UNIQUE) --> AT THE SAME TIME I HAVE SOME ASYNC OPERATIONS IN 
+                                                                                  THE CODE, DONE ON THE GPU, THAT GO IN CONCURRENCY WITH THE OTHERS 
+                                                                                  --> WHAT CAN HAPPEN, IS THAT SOME TASKS ON THE CPU ARE 
+                                                                                  EXECUTED DURING THE ITERATIVE PART IN CONCURRENCY WITH THE 
+                                                                                  GPU STREAM TASKS --> SO FOR EXAMPLE THE NEXT K-POINT 
+                                                                                  COMPUTATION COULD BE DONE WHEN THE CUBLAS handle IS STILL 
+                                                                                  DESTROYED AND NOT CREATED YET --> SO YES, THE K POINT ARE 
+                                                                                  INDEPENDENT FROM A CPU POINT OF VIEW, BUT ONCE WE 
+                                                                                  INSTANTIATE AN ASYNCHRONOUS EXECUTION ON THE GPU, WE CANNOT BE 
+                                                                                  SURE ABOUT THIS !!!!! (REVIEW THIS PART!!!)
+
+                                                                            !!!!!!!!!!!!!!!!!!!!!!!!
+                                                                            - WHAT WE NEED TO DO NOW:
+                                                                                - For the Cusolver (or for the cublas in the cegterg??) there
+                                                                                  is a check that is introduced to see ie the cusolver handle has
+                                                                                  already been created --> this is the most correct way to manage
+                                                                                  the Handles creation !!!
+                                                                                  - BUT WE NEED TO INITIALIZE THE CUBLAS HANDLE AND DESTROY IT
+                                                                                    AT THE END OF THE PROGRAM, RIGHT??
+                                                                                - TRy to check the multi-thread execution and fix the issues
+                                                                                - remember that the 3d arrays introduced in the cegterg.f90 need 
+                                                                                  to be DEALLOCATED!!
+                                                                                - TRY TO RUN THE CODE ON LEONARDO (MAKE IT WORK WITH WHATEVER 
+                                                                                  NVFORTRAN VERSION!!!)
+                                                                                        - Accelerator is not found!!
+                                                                                        - the test on the batched diagonalization works
+                                                                                - TRY TO REMOVE THE cudaDeviceSynchronize from the batched 
+                                                                                  subroutine!!!
+                                                                                - should we keep the cusolver handle defined in the batched
+                                                                                  subroutine the same as the global one initialized in 
+                                                                                  the main program??
+
+
+
+
+
+- SCRIPT CALLING the cdiaghg.f90 isolated from the cegterg:
+    - we made a copy of the KS_SOLVER directory inside a new folder
+    - Path: /test_subroutine_batched_diag/KS_SOLVER_CB/cbToy
+        - we included it in the cbToy directory
+        - so in this way we could have maintain the pre-existent 
+          links between the main program and LAXlib
+        - IMPORTANT THINGS:
+            - we needed to modify the CMakeLists.txt in the cbToy
+            - we added the new program as target
+            - we needed to explicitly specify the CUDA runtime
+            - IT IS IMPORTANT TO INITALIZE THE FOLLOWING THINGS
+              IN ORDER TO MAKE IT WORK:
+                - initialize the cusolver handle;
+                - launch the : call omp_init_lock(cegterg_locker)
+                    - also if we don't use OpenMP!!!
+                    - it is probably introduced for synchronization
+                - don't comment the line : include laxlib.fh --> it is
+                  needed to link to the laxlib interfaces
+                - the clock:
+                    - despite we don't want to take note of the 
+                      timing, we need anyway to initialize the clock
+                      - WHY? BECAUSE UtilXlib/clocks_handler.f90 
+                        needs it for synchronization also in the case
+                        where we don't need the timing:
+                        - in particular the diaghg calls the start_clock_gpu and if it's not allocated, it fails
+                - DEBUG OF STACK EXECUTION:
+                    - it is really useful to use gdb:
+                        gdb --args ./executable.x
+                    - and then run
+                    - THIS IS REALLY USEFUL TO UNDERSTAND THE EXACT
+                      POINT!!!!
+
+      
+
+                                           - ATTENTION !!!:
+                                                - there is a huge difference between :
+                                                    - declare data and enter data (OpenACC):
+                                                        - enter data:  
+                                                        - declare data:
+
+
+
+                                           - WARNING!!! : sometimes, despite having device resident arrays, we need to do an exit data delete
+                                                          of the arrays before doing the DEALLOCATE !!!
+                                           
+                                           - ENVIRONMENT VARIABLE TO DISABLE THE ASYNC EXECUTION (IT FORCES THE PROGRAM TO LAUNCH THE KERNELS 
+                                             SEQURNTIALLY):
+                                                export CUDA_LAUNCH_BLOCKING=1
 
                                            - IMPORTANT THING ABOUT copy between entities on the device:
                                                 - IF AN ARRAY IS DECLARED AS DEVICE RESIDENT IN OPENACC, IT CANNOT BE COPIED WITH THE SLICING:
@@ -616,3 +772,33 @@ REMEMBER :
                                                             is still possible to use the same used by the not batched one!!!
 
 
+
+                                     - CLUSTER RUN ON LEONARDO:
+                                        - issue with cusolverDnSyevjInfo : it is not recognized at compile time!!!
+                                        - what should we do? load the nvfortran 25.11 or change cusolverDnSyevInfo to cusolverDnSyevjInfo_t ??
+                                        - For this reason, we choosed the nvfortran 25.11 : the problem is that it supports by default the 
+                                          CUDA version at least 12.9 or 13.0 (ARE WE SURE???)
+                                        - Our GPUS on our partition mount: NVIDIA A100-SXM-64GB --> supports CUDA 12.2 --> driver incompatibility
+                                        - we add explicitly the flag -gpu=cc80 at compiling --> we indicate the compute capability of A100 GPUs
+                                        - the test on the batched diagonalization works (the script) with NVHPC/25.11 !!!
+                                        - Most important thing:
+                                            - the scrip_diag works also after having loaded the modules for nvfortran, hpcx and gclib and fftw choosed for our QE code 
+                                            - So the error given as "Accelerator not found" is not related to modules (the compiling is OK)
+                                            
+                                            - There is also the subtle error consisting in the fact that the flags are not always taken by the build phase (WHY?????)
+
+                                            - it is related to something in the code, so we placed many print points inside cb_davidson_main.f90:
+                                                - we see that the code crushes at the call to ggen 
+                                                - so we put the prints inside cbToy/cblib/ggen.f90 --> 
+                                                - see that the code crashes in FFTXlib/src/fft_types.f90 
+                                                - in particular the call to fft_init crashes --> it calls fft_type_allocate
+                                                - Eventually, it crashes at the line, inside the if defined(__CUDA):
+                                                - ALLOCATE( desc%indp_d( desc%nr1x,desc%nproc2 ) ) ; !!!!!!
+                                                - but WHY????
+
+
+                                    - WARNING!!!!:
+                                        - on Slurm, to print the stdout in the job_output file, use WRITE, not PRINT !!!!:
+                                            - write(6,*) 'GGEN POINT A: before fft_type_init'
+call flush(6)
+ 

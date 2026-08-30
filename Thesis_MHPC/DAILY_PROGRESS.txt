@@ -647,3 +647,57 @@ WARNING!!:
                 - so to make the branches available locally, we need anyway to connect with the desired branches!!!!
                 - we created a new folder with a new clone: 
                     - new_folder_QE_git_clone
+
+
+
+
+29/08/2026 :
+
+
+    - Now the fucking case of 1 thread for cusolver diagonalized 
+      works --> the problem was related to the Cublas handle destroyed 
+      at the end of the subroutine batched included in cdiaghg.f90 
+      and was caused by the asynchornous nature of the greatest
+      part of the tasks in the code
+    - Now we want to manage the cublas initialization like cusolver,
+      so we introduce a specific module for cublas similar to the one
+      already included for cusolver in the folder LAXlib:
+        - but what we want to do is to move the subroutines related to 
+          the instantiation of the cuda streams in a specific module
+          named: laxlib_cuda_stream_mod.f90
+        - in this way we can include this module by the USE clause 
+          in both the cublas and cusolver modules and be sure that
+          both the handles, the one for cublas and the one for 
+          cusolver, are linked to the same cuda stream (in our case
+          coincident with the OpenACC queues)
+            - BUT WHAT IS THE RELATION BETWEEN CUDA STREAMS AND 
+              OPENMP THREADS???
+        - NOOO! : we decided to simply add the subroutines related
+                  to cublas in the module laxlib_cusolver_mod
+        - Changes: 
+            - cdiaghg:
+                - we added cublas_handle, cublas_initialized in USE
+                - we declared cublasnHandle and set it ad cublas_handle(cusolver_thread)
+                - we added the check for the initialization of cublas
+                - we replaced the handle inside the calls to cublasZtrsmBatched
+            - cegterg:
+                - we added the setstream and the check for init. of 
+                  the cublas
+                - we added use laxlib_cusolver_handles
+                - we removed the cublas handle Destroy
+            - cb_davidson_main:
+                - we added initialization of cublas_handle
+                - we added the finalize of cublas handle
+
+
+        -  include 'laxlib.fh': it is used to tell the preprocessor 
+                                to use certain macro instructions!!
+
+
+    - Then we want to make it run also for the multi-thread case!!!
+
+
+
+
+
+
