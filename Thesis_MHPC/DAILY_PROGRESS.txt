@@ -696,8 +696,53 @@ WARNING!!:
 
     - Then we want to make it run also for the multi-thread case!!!
 
+    - PROBLEM : 
+        - are we sure that it is necessary to have multiple threads??
+        - probably it is more convenient to have one thread that initializes all the matrices passed to batched APIs to math libraries!!
+        - and then passes the matrices as arguments --> but maybe it is more convenient to implement the batched calls at first with multi threads 
+          and then with single one
 
+    - FOR THE MOMENT WE WILL PROCEED BY INTRODUCING THE BATCHED CALLS (AND ONLY THEM) ON A SINGLE THREAD, AND SYNCHRONIZING BEFORE AND AFTER
+      THE BATCHED KERNEL CALLS IN ORDER TO KEEP AS IT IS THE MULTI THREADED STRUCTURE!!!!
+    
+    - ISSUE :
+        - error of synchronization between threads?? (with multi-threading) :
+            - first software architecture: 
+                - we introduced the 3D arrays ad variables in the subroutine cegterg.f90 --> then we passed them to the sbroutine for the 
+                  batched diagonalization defined inside the module cdiaghg (cdiaghg.f90) 
+                - the problem is that, when launching the multithread case, we must be sure that the 3d arrays are shared among all the threads
+                - so it is more correct to define the 3d arrays in the calling program (the cb_davidson_main) and pass the 3d arrays as arguments 
+                  to the cegterg subroutine, with the call contained inside a omp region with the 3d arrays defined as shared variables
+                - now we have the issue:
+                    - Illegal attribute - intent specified for nondummy argument:
+                        - this means essentially that the "INTENT" attribute has been assigned to a variable that has not been included as argument 
+                          of the subroutine
+                        - DUMMY ARGUMENTS: formal arguments --> list of arguments in the subroutine definition 
 
+                - ISSUE: SEGMENTATION FAULT!!
+                    - gdb doesn't give anything
+                    - we try with compute-sanityzer:
+                        compute-sanitizer --tool memcheck exec.x < .in
+                        - IT IS NOT USEFUL AT ALL --> WE SEE:
+                        ========= COMPUTE-SANITIZER
+ nks >
+ Running cb_davidson_main with the following parameters:
+ nk_batches =             2
+In initialize_laxlib_cuda_stream, thread     2         255290883440640
+Initialized default stream in thread     1    2         255290883440640
+In initialize_laxlib_cuda_stream, thread     1         255299972244856
+Initialized default stream in thread     0    1         255299972244856
+           36           36           36        46656
+ ngm =        15353
+ npwx =         1924
+First loop, batch     1    1    0
+First loop, batch     2    2    1
 
-
-
+                        - HOW WE CAN INVESTIGATE REGARDING THE ISSUE??
+                            - GDB: 
+                                - we can run: gdb --args executable.x
+                                - then:
+                                - Backtrace command in gdb:
+                                       - we can launch it by doing: bt
+                                       - it is a summary on how the program reached the step where it is blocked, for instance
+                                -  

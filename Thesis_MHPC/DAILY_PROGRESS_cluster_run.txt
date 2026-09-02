@@ -773,7 +773,9 @@ REMEMBER :
 
 
 
+                                     
                                      - CLUSTER RUN ON LEONARDO:
+                                        
                                         - issue with cusolverDnSyevjInfo : it is not recognized at compile time!!!
                                         - what should we do? load the nvfortran 25.11 or change cusolverDnSyevInfo to cusolverDnSyevjInfo_t ??
                                         - For this reason, we choosed the nvfortran 25.11 : the problem is that it supports by default the 
@@ -782,10 +784,11 @@ REMEMBER :
                                         - we add explicitly the flag -gpu=cc80 at compiling --> we indicate the compute capability of A100 GPUs
                                         - the test on the batched diagonalization works (the script) with NVHPC/25.11 !!!
                                         - Most important thing:
-                                            - the scrip_diag works also after having loaded the modules for nvfortran, hpcx and gclib and fftw choosed for our QE code 
+                                            - the scrip_diag works also after having loaded the modules for nvfortran, hpcx and gclib and fftw 
+                                              choosed for our QE code 
                                             - So the error given as "Accelerator not found" is not related to modules (the compiling is OK)
-                                            
-                                            - There is also the subtle error consisting in the fact that the flags are not always taken by the build phase (WHY?????)
+                                            - There is also the subtle error consisting in the fact that the flags are not always taken by 
+                                              the build phase (WHY?????)
 
                                             - it is related to something in the code, so we placed many print points inside cb_davidson_main.f90:
                                                 - we see that the code crushes at the call to ggen 
@@ -795,10 +798,71 @@ REMEMBER :
                                                 - Eventually, it crashes at the line, inside the if defined(__CUDA):
                                                 - ALLOCATE( desc%indp_d( desc%nr1x,desc%nproc2 ) ) ; !!!!!!
                                                 - but WHY????
+                                        - QUANTUM ESPRESSO GUYS ARE ABLE TO RUN nvhpc 25.3 by doing a sort of installation by running :
+                                            - mod_path="/leonardo/pub/userexternal/fandreuc/spack-0.22.2-06/install/linux-rhel8-icelake/gcc-8.5.0/nvhpc-25.3-clcyqevlpvo7it7667blynbhfojs5kmf/Linux_x86_64/25.3/"
+                                              ml use /leonardo/pub/userexternal/fandreuc/spack-0.22.2-06/modules
+                                              ml nvhpc
+                                            - BUT WE STILL FACED THE ISSUE ALSO WITH THE 25.3 VERSION!!!!
+                                            - SOLUTION!!!!!!!!
+                                                - In order to debug the problems faced when running on Leonardo (or with slurm in general)
+                                                    - we can run :
+                                                    salloc and_the_options_choosen_for_slurm_script
+                                                    - in this way we can get more information regarding the errors
+                                                    - what we can see is that the driver for the Leonardo GPU are provided with CUDA 12.2, not
+                                                      with CUDA 13.0, which is the CUDA version with which the code has been compiled
+                                                    - so it is important to load the module cuda/12.2 after having loaded the module nvhpc/25.11
+                                                    - BUT.... it is really strange the fact that it is needed to load the module aligned with the CUDA version of the GPUs drivers, despite the fact that the formally the CUDA versions compatible with NVIDIA HPC SDK 25.11 are at the least more recent than the 12.9 !!!!! HOW IS THIS POSSIBLE????
+                                                        - SEARCH ABOUT IT!!!!
 
+                                                    - it is also really important to specify a number of GPUs per node = 4 and specify 
+                                                      the compiling with cc80 compute capabiility
+                                                    - WARNING!!: THE OPTIONS FOR COMPILING MUST BE SPECIFIED WITH:
+                                                        - -DQE or -DNVFORTRAN
+                                                        - don't put them into a FLAG environment variable!!
+                                                        - the -DNVFORTRAN_CUDA_CC=80 is really important!!!
+                                                    - we added: #SBATCH --qos=boost_qos_dbg
+                                                        - to make the job be processed fastly!!
+                                                    - now we have a segmentation fault in cegterg : we saw it by the added prints!!
+                                                        - cegterg.f90:
+                                                            - 
+                                            
+                                    - Backtrace command in gdb:
+                                        - we can launch it by doing: bt
+                                        - it is a summary on how the program reached the step where it is blocked, for instance
+                                        - then we can do: info args
+                                            - to inspect what arguments have been passed
+                                            - for out issue, we get:
+                                            (gdb) bt
+#0  0x0000000000410c1c in cegterg () at /home/marco/KS_SOLVER_CB/KS_Solvers/Davidson/cegterg.f90:20
+#1  0x0000000000409f48 in __nv_MAIN__F1L115_2 () at /home/marco/KS_SOLVER_CB/cbToy/cb_davidson_main.f90:137
+#2  0x0000ffff99e6b20c in targetFuncHostTrampoline (generic=false, argc=1, argv=0xffffffffdc98, btid=0xffffffffd8ec, gtid=0xffffffffd8e8, 
+    teamArgs=0xffffffffdc78) at nvomp_team.c:1131
+#3  targetFuncHostTrampoline_inline (argc=1, args=0xffffffffdc78, btid=0xffffffffd8ec, gtid=0xffffffffd8e8) at nvomp_team.c:1205
+#4  targetFuncHostTrampoline_1 (gtid=0xffffffffd8e8, btid=0xffffffffd8ec, args=0xffffffffdc78) at nvomp_team.c:1223
+#5  0x0000ffff99ea77f8 in kernelEntryPoint (useMainState=<optimized out>, mode=ENTRY_MASTER, threadIndex=0, 
+    threadInfo=0xffff99f1a100 <hostThreadInfoTable2Static>, hostLaunchInfo=0xffffffffd9c0, programState=0xffff9a043000 <mainProgramState>, tid=0)
+    at platform_host/hxHostThreads.c:1138
+#6  kernelEntryPoint (threadIndex=0, useMainState=true, mode=ENTRY_MASTER, threadInfo=0xffff99f1a100 <hostThreadInfoTable2Static>, 
+    hostLaunchInfo=0xffffffffd9c0, programState=0xffff9a043000 <mainProgramState>, tid=0) at platform_host/hxHostThreads.c:1071
+#7  hxiMasterKernelEntryPoint (tid=tid@entry=0, hostLaunchInfo=hostLaunchInfo@entry=0xffffffffd9c0, 
+    threadInfo=threadInfo@entry=0xffff99f1a100 <hostThreadInfoTable2Static>, mode=mode@entry=ENTRY_MASTER) at platform_host/hxHostThreads.c:1182
+#8  0x0000ffff99e93aa0 in launchInternal (tid=tid@entry=0, threadModel=threadModel@entry=0xffffffffdbe0, hostFunc=<optimized out>, 
+    args=<optimized out>, async=async@entry=false, willJoin=willJoin@entry=false, streamId=0, module=0x0) at hxInterface.c:640
+#9  0x0000ffff99e93bd8 in launchInternal (willJoin=false, streamId=0, async=false, args=<optimized out>, hostFunc=<optimized out>, 
+    threadModel=0xffffffffdbe0, module=module@entry=0x0, tid=tid@entry=0) at /proj/build/26A/Linux_aarch64/rte/nvomp/src/hxrt/hxInterfaceHost.h:179
+#10 0x0000ffff99e6c2e0 in launchTeam (funcToLaunchArgs=0xffffffffdcd8, funcToLaunch=<optimized out>, hxThreadModel=0xffffffffdbe0, module=0x0, tid=0)
+    at nvomp_team.c:887
+#11 runNewTeam (disableOffload=false, targetTaskArgs=0x0, targetTask=false, argsV3=0x0, argsV2=0x0, argsV1=0xffffffffe360, argc=<optimized out>, 
+    targetFunc=0x4098c0 <__nv_MAIN__F1L115_2>, numThreads=<optimized out>, tid=0) at nvomp_team.c:760
+#12 nvompRunNewTeam (tid=0, targetFunc=0x4098c0 <__nv_MAIN__F1L115_2>, argc=<optimized out>, args=0xffffffffe360) at nvomp_team.c:104
+#13 0x0000ffff99e83084 in __kmpc_fork_call (loc=<optimized out>, argc=<optimized out>, microtask=<optimized out>) at kmpc.cpp:162
+#14 0x0000000000408a34 in cb_davidson_main () at /home/marco/KS_SOLVER_CB/cbToy/cb_davidson_main.f90:147
+
+
+                                        - WE GET:
 
                                     - WARNING!!!!:
                                         - on Slurm, to print the stdout in the job_output file, use WRITE, not PRINT !!!!:
                                             - write(6,*) 'GGEN POINT A: before fft_type_init'
-call flush(6)
- 
+                                              call flush(6)
+                                     
