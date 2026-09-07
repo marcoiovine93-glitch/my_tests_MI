@@ -745,4 +745,68 @@ First loop, batch     2    2    1
                                 - Backtrace command in gdb:
                                        - we can launch it by doing: bt
                                        - it is a summary on how the program reached the step where it is blocked, for instance
-                                -  
+                        
+                        - WE TRIED SEVERAL WAYS TO PASS THE 3D ARRAYS TO THE cegterg:
+                            - 1) we defined in both main program and cegterg the arrays as device resident, but allocatable in the main and standard
+                                 in the subroutine --> SEGFAULT
+                            - 2) we did the opposite --> SEGFAULT
+                            - 3) we defined the arrays on the host in the main program and passed the host arrays to the cegterg as argument
+                                 --> SEGFAULT
+                            - 4) SO IT IS RIGHT TO SET A NEW STRATEGY:
+                                - we first make the code to work, with the new architecture based on the shared arrays, with 1 thread
+                                - verify that it works also for the multi-thread case
+                            - 5) SO WE DEFINE:  
+                                - main program: 3d host arrays as allocatable allocated in the first loop of the nested one (the one on each group of k-points)  
+                                - cegterg: we declare as intent(inout) the 3d host arrays and define them as standard static arrays with assigned dimension
+                                - we copy the arrays in the device with OpenACC, we populate them with the 2D reduced matrices, and we call the batched 
+                                  API (cdiaghg)
+                                - we copy back the eigenvectors and eigenvalues and we do an exit data of the arrays from the device!!! 
+                                - FOR ONE THREAD: IT WORKS PROPERLY!!!:
+                                    - THIS MEANS THAT THE PROBLEMS RELATED TO THE PASSING OF THE ARRAYS TO THE SUBROUTINE CEGTERG, AND RELATED 
+                                      TO THE DEVICE ALLOCATION ARE OVER !!!!!
+                                - MULTITHREAD:
+                                    - issue 1: if after the computation (batched kernel call) we add a barrier and a acc wait, we see that only 
+                                               the second thread of the first k point group shows NaN values
+                                    - issue 2: if in the same point we replace acc wait with acc wait(async_id), the issues it observed for all the
+                                               pairs
+                                    - ATTENTION!: THE ISSUE IS THE SAME IF WE DO THE ENTER DATA AND THE EXIT FOR EACH THREAD OR FOR JUST A SINGLE ONE
+                                                  WITH THE USE OF OMP SINGLE CLAUSE!!!
+                                    - We added some debug lines to investigate what thread fails with the NaN values:
+                                        - WHAT WE SEE IS THAT ONLY THE THREAD 2 HAS THE NaN values
+                                        - LOOKING PROPERLY TO THE CHOLESKY DEBUG LINE, WE SEE THAT IT PRESENTS A CODE 1 FOR THE SECOND ELEMENT OF THE 
+                                          dinfo --> THIS MEANS THAT THE SECOND MATRIX GIVEN IN INPUT IS A WRONG MATRIX --> probably not positive definite
+                                            - WHY????? --> BECAUSE PROBABLY, DUE TO THE TIME NEEDED FOR INITIALIATION AND SO ON, THE THREAD 2 IS PASSED
+                                              TO THE BATCHED KERNEL CALL WITH A LOCAL NBASE DIMENSION LESS THAN THE ONE FOR THE THREAD 1 (remember that
+                                              the execution is asynchronous, so maybe they reach the initialization after certain operations are already
+                                              done), so the CHOLESKY IS IN ERROR FOR THREAD 2
+                                            - FOR THE NEXT BATCHES, WE ARE LUCKY BECAUSE THE SPEED OF CONVERGENCE BETWEEN THE 2 THREADS SEEMS EXACTLY 
+                                              COMPARABLE (WE SEE AN ALTERNANCE OF THE 2 IN THE LINES: "cdiaghg origin..."
+                                            - SO PROBABLY WE HAVE A PADDING PROBLEM SHOWN ONLY IN THE FIRST BATCH!! 
+                                            - Another problem:
+                                                - we tried to declare an array to store the nbase related to each thread, but if we try to pass it to 
+                                                  the cegterg as an argument, the thread 2 stacks for a segmentation fault!
+                                                - it is related to passing the array as an argument, not to any other thing inside cegterg!!
+                                                - WORKAROUND:   
+                                                    - WE INCLUDED THE PADDING BY POPULATING THE MATRICES FOR THE ENTIRE DIMENSION nvecx, WITHOUT TAKING
+                                                      INTO ACCOUNT nbase
+                                                    - BUT nbase SEEMS BASICALLY THE SAME FOR EACH matrix CORRESPONDING TO EACH THREAD!!!
+                                            - The problem persists --> THE ISSUE IS NOT CAUSED BY THE LACK OF THE PADDING !!!
+                                                - WE NOTICED THAT, ERASING THE RESET OF THE RELATIONSHIP BETWEEN THE ASYNC OPEN ACC QUEUE AND THE 
+                                                  clock_thread, WE GET FOR 2 THREADS THE SAME ISSUE WE SEE FOR 3 THREADS CURRENTLY !!!
+                                                    - SEGMENTATION FAULT AT LINE 265 : IT IS THE FIRST LINE WHERE WE HAVE AN OPERATION TO/FROM 
+                                                      THE DEVICE/GPU!!!!
+                                                - SO WE HAVE MANY POINTS CRITICAL FOR THE OBSERVED ISSUE AND THE SYNCHRONIZATION:
+                                                    - the point immediately before the devmemcpy at line 265
+                                                    - the point before the copy back of the eigenvectors and eigenvalues to the low-dimension arrays
+                                                    - the point immediately before the call to cdiaghg !
+                                                    - Are we sure that doing the copy of the arrays inside a OpenACC kernel region/loop is the
+                                                      right choice?
+                                                        - the kernel option simply parallelizes on the GPU with no direct control on how it is performed!
+                                                        - the kernels are acting on the specific stream 
+                                                - WARNING!!!!:
+                                                    - The problem doesn't seem related to the print of the s_d values performed before the Cholevsky
+                                                      factorization batched call in cdiaghg!!!
+
+
+                        - WARNING!!!!!!!!!
+                            - DO NOT FORGET THE PADDING PROBLEMn!!!!!!!!

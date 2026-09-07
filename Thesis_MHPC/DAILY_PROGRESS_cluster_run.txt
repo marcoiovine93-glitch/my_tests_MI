@@ -859,7 +859,24 @@ REMEMBER :
 #14 0x0000000000408a34 in cb_davidson_main () at /home/marco/KS_SOLVER_CB/cbToy/cb_davidson_main.f90:147
 
 
-                                        - WE GET:
+                                        - so essentially we can see that the arguments are not passed to the subroutine cegterg and that the program 
+                                          breaks its execution earlier --> so the problem is the way the arguments are defined<1111
+                                        - IMPORTANT!!:
+                                            - the strategy that we implemented consists in declaring the arrays as allocatable in the calling program
+                                              that is the main, defining them as device resident , and declaring them as standard/not allocatable 
+                                              arrays in the called subroutine (cegterg), still device resident
+                                            - the problem is that the dumping arguments as arrays, require a wrapper, a dope vector, that should be 
+                                              probably defined on the host primarily???
+                                            - so we decided to define them as host arrays, and to enter them on the device with openACC before passing
+                                              them to the subroutine
+                                            - BUT the issue is still there
+                                            - SO we assigned also a certain dimension to the declaration of the arrays in the subroutine
+                                            - NOTHING changed
+                                            - SO we thought of coming back to the original structure working with 1 thread, and by putting 
+                                              the 3d arrays in the subroutine as SAVED (but still device resident)
+                                            - NOW WE HAVE AN ERROR AT COMPILE TIME!!
+
+
 
                                     - WARNING!!!!:
                                         - on Slurm, to print the stdout in the job_output file, use WRITE, not PRINT !!!!:
