@@ -824,7 +824,24 @@ REMEMBER :
                                                         - to make the job be processed fastly!!
                                                     - now we have a segmentation fault in cegterg : we saw it by the added prints!!
                                                         - cegterg.f90:
-                                                            - 
+                                                            - THE Segmentation fault was caused by the copy back of the 2d array ew_comp to the 
+                                                              1d array ew:
+                                                                - IT IS PROBABLY DUE TO THE FACT THAT, DIFFERENT FROM THE OTHER ARRAYS, 
+                                                                  ew IS NOT A DEVICE RESIDENT ARRAY, WHILE ew_comp IS A DEVICE RESIDENT ARRAY
+                                                                - PASSING THE ew_comp ARRAY AS REFERENCE TO THE diaghg SUBROUTINE, PROBABLY ACTS 
+                                                                  DIRECTLY ON THE 1D ARRAY (WE HAVE PROBABLY A SORT OF SHALLOW COPY)
+                                                                - SO IF WE REMOVE THE COPY BACK to the 1D ARRAY, IT WORKS!!!!
+                                                                - WHEN WE COPY BACK, ESSENTIALLY WE ASSIGN THE VARIABLE STORED AT A CERTAIN ADDRESS (ITS 
+                                                                  VALUE) ONLYYY IN THE DEVICE (A DEVICE RESIDENT ARRAY), TO A VARIABLE ON THE HOST 
+                                                                  THAT HAS A CORRESPONDING POINTER TO A SPECIFIC MEMORY SPACE ON THE DEVICE!!!
+                                                                - SO ESSENTIALLY WE HAVE 2 VARIABLE DEFINED ONE ON THE HOST, WITH A SET DEVICE POINTER,
+                                                                  AND ONE ONLY ON THE HOST --> IF WE HAVE A UNIFIED MEMORY, LIKE ON THE SPARK CLUSTER,
+                                                                  THE POINTERS ARE INCLUDED IN A UNIQUE Virtual addresses batch, BUT FOR DISTRIBUTED
+                                                                  MEMORY, LIKE FOR LEONARDO, THIS IS NOT TRUE!!!
+
+
+
+
                                             
                                     - Backtrace command in gdb:
                                         - we can launch it by doing: bt

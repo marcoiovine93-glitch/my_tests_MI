@@ -806,7 +806,82 @@ First loop, batch     2    2    1
                                                 - WARNING!!!!:
                                                     - The problem doesn't seem related to the print of the s_d values performed before the Cholevsky
                                                       factorization batched call in cdiaghg!!!
+                                                - AHHHHHH!!!! 
+                                                    - ATTENTION:
+                                                        - WE ANALYZED THE PROBLEM FOR NTHREADS > 2 WITH GDB:
+                                                            - with the backtrace, we found a reference to the line 184, where the Cublas handle is
+                                                              created
+                                                            - so we decided to define the cublas as it was defined before our change (directly
+                                                              inside the cegterg, with no reference to the laxlib_cusolver_handles
+                                                            - NOW, DESPITE SOME NaNs, IT DOESN'T SHOW ANY SEGMENTATION FAULT !!!!
+                                                            - SO THE PROBLEM OF THE SEGMENTATION FAULT WAS PROBABLY DUE TO THE FACT THAT THE 
+                                                              ONE OR MORE THREADS SPENT TOO MUCH TIME TO CREATE THE CUBLAS HANDLE AND 
+                                                              WHEN THE OTHER ONES REACHED THE FIRST devMemcpy, THE CUBLAS WAS STILL NOT CREATED??
+                                                    - THE ISSUE IS STILL THERE:
+                                                        - WE ADDED A REGULARIZED UPDATE FOR THE S MATRIX INSIDE cdiaghg to make sure it has
+                                                          POSITIVE DIAGONAL ELEMENTS!!! --> WE APPLY THE  APPROXIMATION
+                                                    
+                                                    - TO HAVE MORE DETAILS REGARDING THE ISSUE, WE USED nsys:
+                                                        - how to run it:
+                                                        nsys profile --trace=cuda,openacc,openmp  --stats=true  --force-overwrite=true -o 
+                                                        profile_cb_davidson  ./cb_davidson.x < ../../examples/si2_11_points.in
+                                                    - WE can select one of the threads, and search the code blocks in the part down:
+                                                        - IT IS TRANGE TO OBSERVE THAT THE cudaDeviceSychronize don't seems to work as
+                                                          expected
+                                                        - in particular there is a cublas block kernel, before line 322, that seems to require 
+                                                          a lot of time more than the other threads!!
+                                                        - So essentially every thread has its proper speed, it is not always the same
+                                                        - But we can say that the omp single with the diaghg call inside seems to work!!
 
+
+
+                                                - ATTENTION! :
+                                                    - segmentation fault on LEONARDO cluster:
+                                                        - was caused by the copy back of ew !!!
+                                                        - if we comment the copy back, it works for 1 thread
+                                                        - this means that the fact that Leonardo doesn't have a unified memory probably
+                                                          makes the first copy of the ew (copied with enter data openACC) into the 3d device 
+                                                          resident array as a sort of shallow copy of it --> maybe the change made by the diaghg
+                                                          impacts also on ex?? --> WHU THIS HAPPENS??
 
                         - WARNING!!!!!!!!!
                             - DO NOT FORGET THE PADDING PROBLEMn!!!!!!!!
+
+                        - WARNING!!:
+                            - If we want to copy a device array to host to print it, we need to use an allocatable, the standard arrays give errors
+                              WHY???????????
+
+                        - gdb commands:
+                            - to set a breakpoint: 
+                                break folder_path:<number_of_the_line>
+                            - backtrace : we can run it on a specifi thread by doing:
+                                thread number 
+                                bt
+
+                        - WARNING!!!!:
+                            - THE NOT DEVICE-RESIDENT ARRAYS ARE NEEDED FOR EXAMPLE IN THE CASES WHERE WE NEED TO COMPUTE A HOST SCALAR 
+                              VARIABLE BASED ON IT --> WE NEED TO POPULATETHE ARRAY ON THE DEVICE --> AND THEN DO:
+                              !$acc update self(array)
+                            - then we will be able to for example take the maximum value and copy it on the host!!
+
+
+                        - cudaDeviceSynchronize (equivalent to acc wait()):
+                            - "Blocks until the device has completed all preceding requested tasks" :
+                                - BUT IN NSYS WE SEE THAT IT DOESN'T BLOCK AS WE EXPECTED:
+                                    - because we are inside a thread!!!!:
+                                        - it waits all work in progress(until completed) tasks on the device context
+                                          (that has been created on the curent thread) and the wait is done across all the 
+                                          Streams it is aware of --> this means that if the synchronize is inside a 
+                                          kernel called on a stream, it will not be aware of the others, right?
+                                        - NOT EXACTLY:
+                                            - CUDA CONTEXT: container with allocations, streams, modules (all the ingredients)
+                                                            defined for a provided device
+                                            - Streams : they belong to a context
+                                            - cudaDeviceSynchronize:
+                                                - waits all the streams corresponding to the currently active context
+                                                - SO THE QUESTION IS: ARE WE SURE THE STREAM ARE INSTANTIATED ON THE SAME CUDA CONTEXT??
+
+                                          
+
+                        
+
