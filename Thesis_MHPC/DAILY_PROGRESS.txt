@@ -832,6 +832,86 @@ First loop, batch     2    2    1
                                                           a lot of time more than the other threads!!
                                                         - So essentially every thread has its proper speed, it is not always the same
                                                         - But we can say that the omp single with the diaghg call inside seems to work!!
+                                                        - cudaDeviceSynchronize:
+                                                          - waits all the streams corresponding to the currently active context
+                                                          - SO THE QUESTION IS: ARE WE SURE THE STREAM ARE INSTANTIATED ON THE SAME CUDA CONTEXT??
+                                                          - YES!! IT IS CONFIRMED BY NSIGHT!!
+                                                - We introduced the call to the batched diaghg also in the iterative part (together with the 
+                                                  padding and copy to 3d array and copy back) but we still see problems and errors!
+                                                - If we do the call with as first argument nbase_max (in line withb the padding logic), 
+                                                  we get strange results (also "****" results)
+                                                - If we do the call with nbase (no padding) the result is even worst!
+                                                - WHAT TODO NOW??
+                                                - PIETRO ASKED CLAUDE --> 
+                                                    - We got a working solution for the initialization call to diaghg
+                                                    - But what was wrong???
+                                                        
+                                                        - HUGE SUSPECT:
+                                                            - the batched API work only if the ldh is coincident 
+                                                              with the single matrices dimension
+                                                            - MAybe it is necessary to have packed 3D arrays???
+                                                                - ASK ON NVIDIA FORUM!!!
+
+                                                        - SECOND SUSPECT:
+                                                            - BARRIERS AND ASYNC WAIT(ASYNC_ID)!! 
+                                                                - async wait(aync_id) DIFFERENT FROM async async_wait(async_id) !!!
+                                                   
+                                                   - Stage 3 :
+                                                        - IF WE TRY TO MAKE THE SHARED ARRAYS as allocatables also in the cegterg.f90, we 
+                                                          can see that the ALLOCATION of them in the cegterg seems to be NOT ALLOWED
+                                                          ( IT CAUSES A SEGMENTATION FAULT !!! )
+                                                            - IS THIS CAUSED BY THE FACT THAT WE HAVE OPENMP WITH CUFORTRAN
+                                                              AND Cuda Streams, or is it due to other reasons??
+                                                        
+                                                        - we get the error:
+                                                            Accelerator Fatal Error: call to cuStreamSynchronize returned error 700 (CUDA_ERROR_ILLEG                                                               AL_ADDRESS): Illegal address during kernel execution
+                                                            File: /home/marco/KS_SOLVER_BATCHED_CALL_NO_ITERATIONS/KS_Solvers/Davidson/cegterg.f90
+                                                            Function: cegterg:20
+                                                            Line: 725
+                                                            - !!!! : It was caused by the active_map not populated
+                                                        
+                                                        - We introduced it to make possible to copy in the 3d local arrays only the matrices
+                                                          related to the active threads !! (NOT CONVERGED YET!!)
+                                                        - NOW WE HAVE THE ISSUE:
+                                                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                                             Error in routine  cdiaghg_gpu (7):
+                                                             cusolverDnZheevjBatched failed
+                                                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                                                stopping ...
+                                                                Warning: ieee_invalid is signaling
+                                                                Warning: ieee_inexact is signaling
+    
+                                                        - THE CHOLESKY BATCHED KERNEL HAS AN ISSUE
+                                                        - So we verify that the sc and hc have right values !!!!
+                                                        
+                                                        - WE DECIDED TO CHANGE PLAN AND TRY TO DO THE ALLOCATION DEALLOCATION DIRECTLY
+                                                          on the _comp_itr ARRAYS !!
+                                                        - SO WE DEFINED THE _comp_itr ARRAYS AS ALLOCATABLE IN THE CEGTERG
+                                                        - BUT WE GOT AN ISSUE!!!:
+                                                            - SEGMENTATION FAULT AT THE ALLOCATION INSIDE THE CEGTERG
+                                                            - WHY??
+                                                                - BECAUSE THE ALLOCATABLE IN THE CALLER AND IN THE CALLED SUBROUTINE IS
+                                                                  ADMITTED ONLY IF THE SUBROUTINE IS INSIDE AN INTERFACE OR A MODULE
+                                                                - SO WE ADDED A MODULE INSIDE THE cegterg.f90 AND WE ADDED THE use cegterg_mod
+                                                                  in the main program;
+                                                        - BUT WE GOT AS WELL SOME ISSUES:
+                                                            - For example we got the issue: data already present partly in the address (lack of coherence between addresses memory space dimensions)
+                                                            - Finally, by adding barriers at almost every block, together with !$acc wait(async_id), we reached an improvement:
+                                                            - only one of the k points shows the values 10.473 as output, the other ones seem correct
+                                                            - IT SEEMS THAT FOR ONLY ONE K POINT THE CHOLESKY SOLVER FAILS GIVING STRANGE VALUES 
+                                                            - IT IS NOT FIXABLE BY REPLACING ALL THE wait(async_id) WITH wait!!!
+                                                                - if we do this, we come back to the previous error!!!
+                                                                - it is due for sure to a synchronization between streams on GPU because for nk_batches = 1 it works!!!!
+                                                                - REMEMBER TO TEST IT ON LEONARDO!!!
+                                                            - WE ADDED A LOT OF OMP BARRIERS, BUT NOTHING CHANGED
+                                                            - BUT THEN WE DID THE INVESTIGATION WITH gdb:
+                                                                - we set the breakpoints, added the prints to check if the diaghg call
+                                                                  was triggered before every thread completed the padding part
+                                                                - we observed that at some point, despite the barrier before the diaghg, 
+                                                                  the batched call run before the termination for every thread
+                                                                - so we added a omp barrier at the end of the IF STATEMENT INSIDE WHICH 
+                                                                  WE INTRODUCED THE PADDING --> NOW IT WORKS !!!!!
+
 
 
 
@@ -842,7 +922,9 @@ First loop, batch     2    2    1
                                                         - this means that the fact that Leonardo doesn't have a unified memory probably
                                                           makes the first copy of the ew (copied with enter data openACC) into the 3d device 
                                                           resident array as a sort of shallow copy of it --> maybe the change made by the diaghg
-                                                          impacts also on ex?? --> WHU THIS HAPPENS??
+                                                          impacts also on ex?? --> WHY THIS HAPPENS??
+                                                        - 
+
 
                         - WARNING!!!!!!!!!
                             - DO NOT FORGET THE PADDING PROBLEMn!!!!!!!!
@@ -863,7 +945,7 @@ First loop, batch     2    2    1
                               VARIABLE BASED ON IT --> WE NEED TO POPULATETHE ARRAY ON THE DEVICE --> AND THEN DO:
                               !$acc update self(array)
                             - then we will be able to for example take the maximum value and copy it on the host!!
-
+                                  
 
                         - cudaDeviceSynchronize (equivalent to acc wait()):
                             - "Blocks until the device has completed all preceding requested tasks" :
@@ -880,8 +962,11 @@ First loop, batch     2    2    1
                                             - cudaDeviceSynchronize:
                                                 - waits all the streams corresponding to the currently active context
                                                 - SO THE QUESTION IS: ARE WE SURE THE STREAM ARE INSTANTIATED ON THE SAME CUDA CONTEXT??
-
+                                                - YES!! IT IS CONFIRMED 
+                                                  BY NSIGHT!!
                                           
-
-                        
+                                        - ATTENTION!!!:
+                                            - !$acc wait async(async_id) is NOT COINCIDENT WITH : !$acc wait(async_id) !!!!!!!!! 
+                                                - !$acc wait async() :
+                                                - !$acc wait(async_id) : 
 
