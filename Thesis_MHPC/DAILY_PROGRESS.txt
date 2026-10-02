@@ -783,12 +783,11 @@ First loop, batch     2    2    1
                                               COMPARABLE (WE SEE AN ALTERNANCE OF THE 2 IN THE LINES: "cdiaghg origin..."
                                             - SO PROBABLY WE HAVE A PADDING PROBLEM SHOWN ONLY IN THE FIRST BATCH!! 
                                             - Another problem:
-                                                - we tried to declare an array to store the nbase related to each thread, but if we try to pass it to 
-                                                  the cegterg as an argument, the thread 2 stacks for a segmentation fault!
+                                                - we tried to declare an array to store the nbase related to each thread, but if we try to pass it to                                                  the cegterg as an argument, the thread 2 stacks for a segmentation fault!
                                                 - it is related to passing the array as an argument, not to any other thing inside cegterg!!
                                                 - WORKAROUND:   
-                                                    - WE INCLUDED THE PADDING BY POPULATING THE MATRICES FOR THE ENTIRE DIMENSION nvecx, WITHOUT TAKING
-                                                      INTO ACCOUNT nbase
+                                                    - WE INCLUDED THE PADDING BY POPULATING THE MATRICES FOR THE ENTIRE DIMENSION nvecx, WITHOUT 
+                                                      TAKING INTO ACCOUNT nbase
                                                     - BUT nbase SEEMS BASICALLY THE SAME FOR EACH matrix CORRESPONDING TO EACH THREAD!!!
                                             - The problem persists --> THE ISSUE IS NOT CAUSED BY THE LACK OF THE PADDING !!!
                                                 - WE NOTICED THAT, ERASING THE RESET OF THE RELATIONSHIP BETWEEN THE ASYNC OPEN ACC QUEUE AND THE 
@@ -911,8 +910,89 @@ First loop, batch     2    2    1
                                                                   the batched call run before the termination for every thread
                                                                 - so we added a omp barrier at the end of the IF STATEMENT INSIDE WHICH 
                                                                   WE INTRODUCED THE PADDING --> NOW IT WORKS !!!!!
+                                                        - TESTS ON LEONARDO: okkkk!!!
 
 
+
+                                                     - ZGEMM implementation:
+                                                        - we can choose between 2 batched APIs:
+                                                            - Strided: cublasZgemmStridedBatched
+                                                                - introduces the stride
+                                                                - it assumes contiguous memory storage for the matrices
+                                                                - the matrices could be of different sizes?? :
+                                                                    - NOOOOOOOOOOOOO!!
+                                                                    - THEY MUST BE UNIFORM IN SIZE!!
+                                                            - Not Strided: cublasZgemmBatched
+                                                                - it doesn't assume contiguous memory storage for the matrices
+                                                                - it assumes to declare arrays of c-pointers to Fortran matrices
+                                                                - the matrices must be of the same size --> so it needs a padding!!!
+                                                                - we used sokmething similar in the diaghg, the problem is that in this
+                                                                  case we do the kernel call directly inside the cegterg !!!
+                                                        - DESIGN:
+                                                            - Considering that the iterative process and speed of each OMP thread processing
+                                                              within the iterative part of the cegterg can be different across the threads,
+                                                              we SHOULD APPLY THE SAME PROCEDURE INTRODUCED FOR THE CALL TO THE DIAGHG
+                                                            - The problem is that the ZGEMM calls are several inside the iterative part!!!!
+                                                            - FOR each of them we should do the allocation check, the padding, the copy, the call 
+                                                              and the copy back!!!
+                                                        - Implementation of the not iterative part:
+                                                            - segmentation fault at the first assigment for hpsi_comp:
+                                                                - we solved by removing the async(async_id) from the kernel directive
+                                                                  (MAYBE IT CANNOT BE ASYNCHRONOUS??)
+                                                                - ANOTHER ISSUE:
+                                                                    - PROBLEM OF synchronization when doing the assignment for spsi:
+                                                                        - ERROR:
+                                                                            Accelerator Fatal Error: call to cuStreamSynchronize returned error 700 
+                                                                            (CUDA_ERROR_ILLEGAL_ADDRESS): Illegal address during kernel execution
+                                                                        - it is probably due to the fact that we assumed that spsi is
+                                                                          ALWAYS ALLOCATED, but this is not true!!!
+                                                                        - SOLUTION (TO BE VERIFIED):    
+                                                                            - TRY TO INTRODUCE THE ASSIGNMENT OF spsi only if uspp = .TRUE. !!
+                                                                        - WE CHANGED THE DESIGN by declaring new shared arrays just for the batched
+                                                                          Zgemm, AND WE CORRECTED THE CALL TO ZgemmBtched: the first matric
+                                                                          needed to be conjugate!!!
+                                                                        - NOW WE HAVE THE SAME PROBLEM OF THE ILLEGAL ADDRESS AT LINE 616 !!!
+                                                                 - Initially the code showed an output working only for the kpoints 1 and 3. 
+                                                                   The 2nd and 4th k points showed * values or NaN values
+                                                                   - We made some changes in barrier positions and we fixed an error in the stride 
+                                                                   passed to one of the calls to the Batched Zgemm
+                                                                   - The GREATEST MISTAKE STEM FROM THE BRANCHING:
+                                                                   - the omp single necessary to run the batched zgemm, MUST BE ADDED aoutside 
+                                                                   the IF statement evaluating nstart and nend !!!!
+                                                                   - otherwise, it could happen that the threads meet the if in different moment 
+                                                                   in time, but related to the same iteration, so
+                                                                   the paradox is that both of them could call omp single in slightly different 
+                                                                   moments, bringing an ERROR!!!!
+
+
+                                                                   - WE DEBUGG WITH THE COMMAND:
+                                                                        compute-sanitizer --tool memcheck ./cb_davidson.x < ../../examples/si2_11_points.in &> output.log
+                                                       - WARNING!!: the error was due to the fact that the allocation of ew was erased!!! ATTENTION!
+                                                       - Now we have the zeros and NaNs as outputs
+                                                       - WE INCLUDED THE PADDING, BUT WE STILL HAVE THE WRONG RESULTS!!!
+                                                       - Initially the code showed an output working only for the kpoints 1 and 3. The 2nd and 
+                                                         4th k points showed * values or NaN values
+                                                       - We made some changes in barrier positions and we fixed an error in the stride passed 
+                                                         to one of the calls to the Batched Zgemm
+                                                       - The GREATEST MISTAKE STEM FROM THE BRANCHING:
+                                                       - the omp single necessary to run the batched zgemm, MUST BE ADDED aoutside the IF 
+                                                         statement evaluating nstart and nend !!!!
+                                                       - otherwise, it could happen that the threads meet the if in different moment in time, 
+                                                         but related to the same iteration, so the paradox is that both of them could call omp 
+                                                         single in slightly different moments, bringing an ERROR!!!!
+                                                            - WE NEED TO VERIFY THIS EXPLANATION!!!!
+                                                       - TESTS on Leonardo : OK!!
+
+                                                              
+                                         - Interesting thing:
+                                            - since we put cegterg inside a module, if we don't allocate spsi, its shape is not (1,1) anymore
+                                            but is garbage
+                                            - this is due the different saving in memory that we have for the explicit interface (module)
+                                            - REVIEW WHY!!!!
+                                        
+                                        - ATTENTION!!
+                                            - kdim is not the same for each thread: --> WE NEED A PADDING FOR IT EVEN BEFORE THE ITERATIVE PROCESS!!!!
+                                    
 
 
                                                 - ATTENTION! :
