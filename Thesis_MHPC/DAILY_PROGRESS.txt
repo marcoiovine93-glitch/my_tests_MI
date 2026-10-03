@@ -982,6 +982,9 @@ First loop, batch     2    2    1
                                                          single in slightly different moments, bringing an ERROR!!!!
                                                             - WE NEED TO VERIFY THIS EXPLANATION!!!!
                                                        - TESTS on Leonardo : OK!!
+                                                - IMPLEMENTATION OF ZGEMM BATCHED IN THE ITERATIVE PART:
+                                                    - First of all, we need to understand, and in particular understand the reasons, behind the variations of the arguments of the Zgemm calls across the threads -->                                                     - in this way we will know what arguments/variables need a padding !!!
+                                                     - WE INVESTIGATED THIS BY INSERTING SOME PRINTS IN THE CEGTERG CODE!!
 
                                                               
                                          - Interesting thing:
