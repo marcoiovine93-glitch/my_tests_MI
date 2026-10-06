@@ -985,6 +985,39 @@ First loop, batch     2    2    1
                                                 - IMPLEMENTATION OF ZGEMM BATCHED IN THE ITERATIVE PART:
                                                     - First of all, we need to understand, and in particular understand the reasons, behind the variations of the arguments of the Zgemm calls across the threads -->                                                     - in this way we will know what arguments/variables need a padding !!!
                                                      - WE INVESTIGATED THIS BY INSERTING SOME PRINTS IN THE CEGTERG CODE!!
+                                                     - ATTENTION!!!
+                                                        - THE TRUTH IS THAT my_n and nb1 are NOT CONSTANT ACROSS THE THREADS!!!
+                                                        - AND in FACT WE HAVE WRONG RESULTS!!!
+                                                        - THE problem is that nb1 is an offset, this means that, if it is variable across threads,
+                                                          the stride but also the parts of the matrices included in the computation, are different
+                                                          --> SO PROBABLY WE NEED TO USE THE NOT STRIDED BATCHED ZGEMM VERSION!!
+                                                        - SO WE decided to use the API: ZgemmBatched instead of the Strided one, to take into
+                                                          account different possible slices among the threads!!
+                                                     - SO WE AT FIRST tried to IMPLEMENT THE ZgemmCublasBatched considering:
+                                                        - arrays of pointers to 3D matrices (the _comp_zgem matrices already introduced for the Zgemm 
+                                                          batched in the initial part;
+                                                        - The arrays of pointers are shared across the threads, so they are set as arguments of
+                                                          the cegterg subroutine and allocated and deallocated before the cegterg calls;
+                                                        - the arrays of pointers were of size equal to the entire batch size (n_k);
+                                                        - THIS LED TO ILLEGAL DEVICE ADDRESS ERRORS OR DIAGONALIZATION ERRORS;
+                                                     - SO WE CHANGED THE DESIGN:
+                                                        - arrays of pointers to 2d matrices (the already given for the rest of the code)
+                                                        - The arrays of pointers are shared, but they are set as allocatable in the cegterg so
+                                                          that they are allocated dynamically inside the cegterg;
+                                                        - The dimension to which the allocation is done for the arrays of pointers depends on how
+                                                          much threads are still waiting for the convergence; 
+                                                        - So we introduced n_active_zgem and other variables to take into account the active threads 
+                                                          and the need to separate the control variables of the diagonalizer and the ones set for 
+                                                          the Zgemm as well separated and distinguished!
+                                                        - We followed a logic similar to what is already introduced for the diagonalizer, based
+                                                          on the active threads --> the ones not yet converged;
+                                                        - it is important to observe that we set the c_devptr corresponding to psi, hpsi, spsi with the use of accdev_ptr (because they are defined on both host and device), but we SET the c_devptr corresponding to vc, sc and hc with the use of c_devloc!!
+                                                        - BUT WE HAVE THE ERROR:
+                                                            - 0: DEALLOCATE: memory at (nil) not allocated
+                                                        - SOLUTION:
+                                                            - THE PROBLEM was due to the deallocation of the ptr -arrays included inside the loop iterating across the various batches of k-points !!! (in the main program)
+                                                            - we had to move it at the end of the main!!!
+
 
                                                               
                                          - Interesting thing:
@@ -1006,7 +1039,7 @@ First loop, batch     2    2    1
                                                           makes the first copy of the ew (copied with enter data openACC) into the 3d device 
                                                           resident array as a sort of shallow copy of it --> maybe the change made by the diaghg
                                                           impacts also on ex?? --> WHY THIS HAPPENS??
-                                                        - 
+                                                        -  
 
 
                         - WARNING!!!!!!!!!
