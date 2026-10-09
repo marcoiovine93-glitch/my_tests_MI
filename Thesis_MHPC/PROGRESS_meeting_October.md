@@ -5,6 +5,8 @@
     - Spark: 26.3
     - Leonardo: 25.3
 - CUDA version for Leonardo drivers: 12.2
+- We didn't use OpenACC device resident arrays in order to guarantee as much as possible compatibility with both
+  distributed memory (Leonardo) and unified memory (Spark) architectures
 
 
 ### Objectives
