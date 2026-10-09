@@ -78,12 +78,13 @@
     - REASONS:
         - we have memory contiguity
         - the matrices show the same dimensions and we take the same slices for all of them
+    - It was necessary to declare 3D arrays containing the 2D matrices corresponding to each thread
 
 - Iterative part:
     - we use the API : cublasZgemmBatched
     - REASONS:
-        - the matrices show variable slices
-
+        - the matrices show variable slices that are not constant across the OpenMP threads
+    - It was necessary to define arrays of pointers to matrices, assigned through the OpenACC directives acc_deviceptr and c_devloc
 
 
 ## Next steps
