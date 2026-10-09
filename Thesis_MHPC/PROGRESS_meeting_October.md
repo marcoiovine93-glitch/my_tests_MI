@@ -38,6 +38,7 @@
     - they have been declared as host ALLOCATABLE heap arrays and then copied to the device with OpenACC
     - we defined them as ALLOCATABLE inside the cegterg subroutine because we need to REALLOCATE THEM based on the active threads inside the 
       iterative part of the Davidson diagonalization
+        - in this way we are able to manage the deallocation of these shared arrays from the main program (more safe)
         - defining these arrays as allocatable in cb_davidson_main and passing them to the subroutine cegterg subroutine, made necessary to
           DEFINE THE cegterg.f90 as a MODULE in order to have an explicit interface for the subroutine
 
@@ -85,7 +86,10 @@
     - REASONS:
         - the matrices show variable slices that are not constant across the OpenMP threads
     - It was necessary to define shared arrays of pointers to matrices, assigned through the OpenACC directives acc_deviceptr and c_devloc
-
+    - It was necessary to be able to allocate and deallocate the arrays of pointers based on only the active threads within the iterative
+      process
+        - so we defined these arrays as allocatable on both the main program and the cegterg subroutine
+        - in this way we are able to manage the deallocation of these shared arrays from the main program (more safe)
 
 ## Next steps
 
