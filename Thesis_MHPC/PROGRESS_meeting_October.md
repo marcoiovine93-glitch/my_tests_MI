@@ -88,6 +88,15 @@
         - so we defined these arrays as allocatable on both the main program and the cegterg subroutine
         - in this way we are able to manage the deallocation of these shared arrays from the main program (more safe)
 
+
+
+#### cuFFT batching
+
+
+
+#### First profiling results
+
+
 ## Next steps
 - Fix the last Zgemm Batched kernel calls
 - implement the Batched FFT in the iterative part
