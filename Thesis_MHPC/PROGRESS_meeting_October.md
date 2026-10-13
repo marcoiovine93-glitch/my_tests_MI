@@ -3,19 +3,16 @@
 ### General data:
 - NVHPC SDK version
     - Spark: 26.3
-    - Leonardo: 25.3
+    - Leonardo: 25.11
 - CUDA version for Leonardo drivers: 12.2
 - We didn't use OpenACC device resident arrays in order to guarantee as much as possible compatibility with both
   distributed memory (Leonardo) and unified memory (Spark) architectures
 
 
 ### Objectives
-
-
-
-
-
-
+- Make use of the Batched APIs provided by NVIDIA in order to reduce the number of kernel calls and improve the code performance
+- Make the changes keeping the OMP and Multi Stream code structure with the use of OpenACC
+- Possibly extend the change to real world aplications
 
 
 ### Strategy
@@ -92,4 +89,8 @@
         - in this way we are able to manage the deallocation of these shared arrays from the main program (more safe)
 
 ## Next steps
+- Fix the last Zgemm Batched kernel calls
+- implement the Batched FFT in the iterative part
+- Profiling on Leonardo
+- Try to extend the changes to real applications
 
