@@ -1017,15 +1017,277 @@ First loop, batch     2    2    1
                                                         - SOLUTION:
                                                             - THE PROBLEM was due to the deallocation of the ptr -arrays included inside the loop iterating across the various batches of k-points !!! (in the main program)
                                                             - we had to move it at the end of the main!!!
+                                                            - TEST ON LEONARDO : ok !!!
+                                                    - WE GO FURTHER TO IMPLEMENT THE ZgemmBatched call also for the next single zgemm call;
+                                                    - to do so, in the part of code introduced for the first ZgemmBatched in the iterative part,
+                                                      we added in the if-statement checking the allocation of the ptr_ arrays also the arrays 
+                                                      ptr_sc, ptr_hc, ptr_hpsi
+                                                    - THen we added also the assignment of them related to the 2d arrays;
+                                                    - Then we replaced the single thread call with the Batched one
 
+                                                    - ATTENTION!!! : WE HAD THE RIGHT LAYOUT FOR THE SOLUTION BUT WITH THE WRONG VALUES
+                                                        - THIS was caused by the wrong values of the coefficients alpha and beta in the 
+                                                          Batched Zgemm call !!! --> so if it happens again, check the COEFFICIENTS!!!
+                                                    
+                                                    - ATTENTION!: let's remember that, despite considering always the same dimensions for the 
+                                                      computation of each matrix included in the Batched Zgemm call, it was not necessary
+                                                      to introduce a padding in this case because the matrices don't need to be equal to 
+                                                      Identity or positive-definite
+                                                    
+                                                    - ATTENTION!: 
+                                                        - FOR THE next Zgemm call it was needed to recompute my_n_max, not_cnv_max and kdim_max !!!
+                                                        - They were set before and not changed
+                                                        - maybe we will need to recompute them for the next kernel calls
+                                                    
+                                                    - IMPORTANT OBSERVATION:
+                                                        - WHY WE CHOOSED to use the ZgemmBatched and not the ZgemmBatchedStrided for the iterative part?
+                                                            - in the iterative part, we have that the leading dimensions are the same for each 
+                                                              2d matrix
+                                                            - also the dimensions over which the computation is done are the same
+                                                            - so what?? --> the problem is that nb1, on which the matrices slices are based, is
+                                                              variable across the threads !!!! --> so it preferable to consider pointers to 2D 
+                                                              matrices 
+                                                            - but in this case we lose data contiguity --> lack of performance!!!
+
+
+                                                    - Next Zgemm calls in the iterative part:
+                                                       - First check:
+                                                            - we checked through some prints that nb1 is kept constant within the exedcution
+                                                            - but n_start??
+                                                       - ISSUE:
+                                                            - at first we re-computed my_n_max and not_cnv_max, because they could present changes
+                                                              (TO BE VERIFIED)
+                                                            - But we got wrong results and address misalignments
+                                                            - This was due to the fact that the arrays with slices related to n_start were modified
+                                                              by the calls, run before the ZGEMM, to divide_all and mp subroutines and in general
+                                                              n_start changed.
+                                                            - So we reassigned the arrays with slices depending on n_start, to the arrays 
+                                                              of pointers to matrices!!
+                                                            - !!!!!!!! SO PAY ATTENTION!!!
+                                                            - VERIFY ON LEONARDO!!!! : TEST OK !!!
+                                                        - WE IMPLEMENTED THE ZgemmBatched for the next call (the last one of the iterative part)
+                                                          in the same way as the previous one without peculiar issues!!
+                                                                - Test on LEONARDO: OK !!!
+
+
+                                                        - CALL to Zgemm inside the IF statement checking the convergence of all the threads:
+                                                          - At first we tried to implement the Zgemm Strided --> BUT WE HAD AN ISSUE related to
+                                                            the memory addresses not aligned or not present;
+                                                          - Then we decided to implement the ZgemmBathed, but we still had the same issue!!
+                                                          - SOLUTION:
+                                                            - THE PROBLEM WAS CAUSED BY THE FACT THAT THE ZGEMM CALL HAD TO BE DONE ONLY 
+                                                              for the matrices corresponding to the threads entering the if statement!!!
+                                                            - SO WE had to introduce a flag and a corresponding array to keep in memory the
+                                                              treads active for inside the IF statement
+                                                            - we had to declare many new arrays of pointers shared across the threads (set as 
+                                                              arguments of the cegterg)
+                                                            - we had of course to add a block to what introduced for the first Zgemm call 
+                                                              inside the iterative part, WITH A CHECK ON ALLOCATION AND DEALLOCATION OF 
+                                                              THE ARRAYS OF POINTERS --> This is necessary because the number of active threads,
+                                                              so the dimension of these arrays, is not fixed and can change
+                                                            - ISSUE :
+                                                                - the code stacked : WHY??
+                                                                    - initially we introduced the zgemm call with allocation, deallocation
+                                                                      and flag setting inside the IF statement checking convergence;
+                                                                    - BUT WE ADD barriers and OMP single regions;
+                                                                        - THESE DIRECTIVES CANNOT BE INSIDE THIS IF --> WHY???
+                                                                            - BECAUSE THEY CAN BE USED IN PARTS OF THE CODE ACCESSIBLE FROM
+                                                                              all the threads --> if the IF StATEMENT makes only some
+                                                                              threads to create a branch, this means that for example:
+                                                                              - A BARRIER IS NOT DOABLE, BECAUSE ONE THREAD IS IN THE IF BRANCH,
+                                                                                WHILE ANOTHER ONE IS PROCESSING NEXT/DIFFERENT INSTRUCTIONS
+                                                                              - SO THEY IN A CERTAIN WAY CANNOT REACH EACH OTHER
+                                                                              - SIMILAR IS FOR THE single: 
+                                                                                - admitting that the threads entering the IF run it, how Ompen MP
+                                                                                  COULD BLOCK THE OTHER THREADS THAT ARE NOT IN THE SME BRANCH??
+                                                                         - For the reasons above, we had to interrupt the IF STATEMENT (not befoe
+                                                                           having populated the flags), add the allocation/deallocation, the 
+                                                                           ptr_ arrays assigning and run the ZgemmBatched!
+                                                                     - BUT ANNOTHER ISSUE:
+                                                                       - REMEMBER: 
+                                                                            - if the error: 
+                                                                                0: DEALLOCATE: memory at (nil) not allocated
+                                                                              appears,THIS MEANS THERE IS A DEALLOCATION OF THE WRONG OR NOT
+                                                                              CORRECT ARRAY!!!!
+                                                                      - Test on Leonardo:
+                                                                            - We have a problem of not correct address!!!!!!!
+                                                            
+                                                            - PLAN ON DATE 09/10/2026 :
+                                                                - we try to implement the Batched ZGEMM for the last 3 Zgemm calls without error
+                                                                  on Leonardo
+                                                                - We need to do a profiling on Nsight system (probably with NVTX instrumentation)
+                                                                - We need to implement the batched h_psi_ptr:
+                                                                    - in it WE HAVE THE FFT BATCHED CALL THAT WE NEED TO MAKE BATCHED;
+                                                                    - it is passed as an external argument to the cegterg from the main:
+                                                                        - it corresponds to the subroutine:
+                                                                            - my_h_psi_batched
+                                                                            - it is included in the folder: 
+                                                                                - cbToy/cb_operators/
+                                                                            - inside the subroutine, the following functions are called:
+                                                                                - invfft( 'Wave', fft_array_batched(:,i_batch), dfft)
+                                                                                    - this is an interface
+                                                                                    - the subroutines body is in the file:
+                                                                                        - fft_fwinv.f90
+                                                                                - fwfft('Wave', fft_array_batched(:,i_batch), dfft)
+                                                                                    - also this is an interface
+                                                                                    - the subroutines body is in the file:
+                                                                                        - fft_fwinv.f90 
+                                                                                - They are taken from the module: fft_interfaces:
+                                                                                    - probably we will need to create new _batched functions
+                                                                                      from the ones above
+                                                                            - we have a big do loop over nbnd (number of bands)
+                                                                         -  KNOWN LIMIT IN GPU UTILIZATION:
+                                                                            - The FFT presents a omp lock launched through the variable, of tpype
+                                                                              omp_lock_kind:
+                                                                                - fftw_locker (we have analogous variables for both cegterg and for
+                                                                                  the timing (cegterg_locker and clock_clocker)
+                                                                                - introduced to protect the FFT plan initialization from
+                                                                                  concurrent thread access, serializes the invfft and fwfft 
+                                                                                  calls across all the concurrent threads
+                                                                                  (the FFT plan creation is not thread safe!!)
+                                                                                - we need to overcome this bootleneck!!!
+                                                                                    - WE PRE-INITIALIZE FFT PLANS BEFORE THE PARALLEL REGION!!!
+                                                                            - specific subroutines we are interested in from the fft interface:
+                                                                                - invfft_y_gpu
+                                                                                - fwfft_y_gpu
+                                                                                    - thay call: 
+                                                                                        - cfft3ds_gpu (from fft_scalar)
+
+                                                                            - fft_array_batched: 
+                                                                                - passed as arguments to the above subroutines
+                                                                                - allocated in the main program
+                                                                                - imported from cb_module --> together with dfft !
+                                                                                - dimension:
+                                                                                    - dfft%nnr : it is the fft global array dimension
+                                                                            - dfft : variable of type: fft_type_descriptor (fft grid descriptor)
+                                                                            - initialization of fft:
+                                                                                - done in ggen !!
+                                                                                    - lpara is set --> it id FALSE for MPI disabled!!
+                                                                                    - it calls : fft_type_init
+                                                                                        - the pencil decomposition is done if the fft_type_init has
+                                                                                          the last corresponding argument
+                                                                                            - IN OUR CASE IT IS DISABLED
+                                                                                        - it seems to allocate the grid for the fft!
+                                                                                     - SO CURRENTLY THE ONLY CALL IN THE fwfft_y_gpu and invfft_y_gpu
+                                                                                       IS:
+                                                                                            - cfft3ds_gpu (from fft_scalar)
+                                                                                            - to get what option corresponds to our case in fft_scalar,
+                                                                                              we run:
+                                                                                              grep -rn -B2 -A6 "Internal" CMakeLists.txt FFTXlib/CMakeLists.txt cmake/*.cmake 2>/dev/null | grep -i -E "internal|__FFTW|__DFTI|compile_def"
+                                                                                              IT should be _FFTW3 --> NOOOO!
+                                                                                              - IF _CUDA is defined, we have:
+                                                                                                - fft_scalar_cuFFT
+                                                                                            - cfft3ds_gpu calls:  cfft3d_gpu
+                                                                                            
+                                                                                          - The argument isign manages if the FFT is direct or inverse!!
+                                                                                                - -1 : forward transform (from R-space to G space) 
+                                                                                                -  1 : INVERSE transform (from G-space to R-space)
+                                                                                          - number of elements in the batch for the kernel 
+                                                                                            cufftPlanMany:  
+                                                                                                - howmany: it is passed as argument to cfft3ds_gpu
+                                                                                          - igk_batched and igk : index from k+g to g ordered list
+                                                                                                - defined in the module: cb_module
+                                                                                          - dfft : defined in cb_module
+                                                                                          - fft_type_descriptor: defined in fft_types
+
+                                                                             - FFT Batched plan:
+                                                                                - Modify cbToy/cb_operators/my_hpsi_bacthed
+                                                                                    - or create a new similar method
+                                                                                        - the problem is that the psi (and maybe vloc)
+                                                                                          need to be passed as a 3 dim array
+                                                                                            - Assumed size declaration???
+                                                                                            - maybe it is better a new method!!
+                                                                                - If possible, make the f or f_d argument of the subroutines:
+                                                                                    - fwfft_y_gpu and invfft_y_gpu --> inside the file: fft_fwinv
+                                                                                    - cfft3ds_gpu and cfft3d_gpu
+                                                                                    - WE NEED TO MODIFY THE f or f_d to make it as an
+                                                                                      Assumed-Size Declaration (*) argument :
+                                                                                        - in this way it can be of dimensions 1 or 2, based 
+                                                                                          on the case
+                                                                                - We modified:
+                                                                                    - fft_fwinv.f90 (f_d from 1dim to 2dim for both direct and
+                                                                                      inverse transforms --> we added 2 subroutines
+                                                                                    - fft_scalar.cuFFT.f90 (same as above) 
+                                                                                        - we added 2 subroutines
+                                                                                        - we added a subr. to create the fft plan
+                                                                                        - into the module we defiined an array with the index 
+                                                                                          pointers (they are like handles) 
+                                                                                        - in this way we create the plans in the main calling the
+                                                                                          subr. in the module
+                                                                                        - we made cufft_3d_plan in the module as not thread private
+                                                                                            - otherwise it is always reset to 0 and generates errors
+                                                                                    - fft_scalar
+                                                                                 - BUT NOW WE HAVE THE ERROR:
+                                                                                    - ILLEGAL ADDRESS (for nk_batched > 4)
+                                                                                    - WE did further investigation through the command:
+                                                                                    compute-sanitizer --tool memcheck --show-backtrace=device ./cb_davidson.x < ../../examples/si2_11_points.in
+                                                                                    - THE ERROR WAS AT LINE 44 AND WAS RELATED TO AN Out of bounds
+                                                                                      for the array: igk_batched
+                                                                                        - SOLUTION:
+                                                                                            - the correct line 44 is:
+                                                                                            fft_array_batched(dfft%nl(igk_batched(ig,i_batch)),ik) = psi(ig,ibnd,ik)
+                                                                                            - so igk_batched must be taken with the second index
+                                                                                              as i_batch --> WHY IT WORKS????
+                                                                                                - WE NEED TO UNDERSTAND THE REASON!!!!
+                                                                                        - WARNING!!!
+                                                                                            - The apparent solution at the previous point WAS NOT
+                                                                                              SOLVING THE ISSUE:
+                                                                                              - After having done some other changes to 
+                                                                                                separate the batched kernel call in the initial
+                                                                                                part of the cegterg and in the iterative part,
+                                                                                                WE SAW THAT ONLY THE k-point 1 HAD RIGHT RESULTS
+                                                                                                AND THAT Proceeding within the iterations for
+                                                                                                the next k-points resulted in an illegal address
+                                                                                                access for a Device Kernel
+                                                                                              - REASON:
+                                                                                                - in the cb_davidson_main, inside the OMP
+                                                                                                  loop over the threads, we saw that the 
+                                                                                                  initialization of igk_batched and ek_batched,
+                                                                                                  was done only for a slice corresponding to the
+                                                                                                  CURRENT INDEX in the OMP Loop!!!
+                                                                                                   - SO THIS IS THE REASON WHY THE PREVIOUS CHANGE
+                                                                                                     SEEMED TO WORK for i_batch:
+                                                                                                     In our case i_batch coincided with the master
+                                                                                                     Thread (omp master region), so it was the
+                                                                                                     only thread for which the corresponding 
+                                                                                                     igk and ek slices were initialized!!
+                                                                                                   - SOLUTION:
+                                                                                                        - We need to initialize the igk_batched
+                                                                                                          and ek_batched (with calls to init_k 
+                                                                                                          and init_random_) before the 
+                                                                                                          loops over the k-points
+                                                                                                          --> WE NEED TO INITIALIZE FOR ALL THE 
+                                                                                                              k-points in one time!!!
+                                                                                    
+
+                                                    - Profiling of LEONARDO results:
+                                                        - to be verified!!
+
+                                                    - NVTX problem at compile time:
+                                                        - error related to the libnvToolsExt!!!
+                                                        - Then we refer to the url:
+                                                        https://developer.nvidia.com/blog/customize-cuda-fortran-profiling-nvtx/
+                                                        - SOLUTION:
+                                                            - THE FILE : CMakeLists.txt CONTAINS THE option FLAGS:
+                                                                - QE_ENABLE_PROFILE_NVTX (we set it to ON)
+                                                                - QE_ENABLE_TRACE (for the moment we set it to false)
+                                                            - IT IS NECESSARY to explicitly add nvtx flag:
+                                                            nsys profile --trace=cuda,openacc,openmp,nvtx  --stats=true  --force-overwrite=true -o profile_cb_davidson  ./cb_davidson.x < ../../examples/si2_11_points.in
+                                                            
+                                                             
+                                                    - IMPORTANT THING TO CHECK!!:
+                                                      - we didn't do an enter data create for the arrays of piinters to matrices IN THE MAIN, so why
+                                                        we still DO IT for the host by doing an allocate in the main????????????
+                                                        VERIFY!!!!!!!!!!
 
                                                               
                                          - Interesting thing:
                                             - since we put cegterg inside a module, if we don't allocate spsi, its shape is not (1,1) anymore
-                                            but is garbage
+                                              but is garbage
                                             - this is due the different saving in memory that we have for the explicit interface (module)
                                             - REVIEW WHY!!!!
                                         
+
                                         - ATTENTION!!
                                             - kdim is not the same for each thread: --> WE NEED A PADDING FOR IT EVEN BEFORE THE ITERATIVE PROCESS!!!!
                                     
@@ -1084,5 +1346,11 @@ First loop, batch     2    2    1
                                         - ATTENTION!!!:
                                             - !$acc wait async(async_id) is NOT COINCIDENT WITH : !$acc wait(async_id) !!!!!!!!! 
                                                 - !$acc wait async() :
-                                                - !$acc wait(async_id) : 
+                                                - !$acc wait(async_id) :
+
+
+
+
+                          - HOW TO COMPILE ON DGX SPARK? :
+                            CC=nvc CXX=nvc++ FC=nvfortran cmake -S . -B build  -DBLA_VENDOR=NVPL    -DQE_FFTW_VENDOR=NVPL   -DQE_ENABLE_OPENMP=ON   -DQE_ENABLE_CUDA=ON         -DQE_ENABLE_TEST=OFF -DQE_ENABLE_MPI=OFF 
 
