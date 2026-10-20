@@ -1324,7 +1324,7 @@ First loop, batch     2    2    1
                                                                                                               start after (npwx x nbnd) !!!
                                                                                                             - The old version had only the first batch,
                                                                                                               so taking nbnd or nbndx had no impact!!!
-
+                                                                                                      - BUT WE NEED TO TEST IT ON LEONARDO!!
 
 
                                                     - Profiling of LEONARDO results:
