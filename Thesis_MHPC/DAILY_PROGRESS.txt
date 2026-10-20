@@ -1258,7 +1258,74 @@ First loop, batch     2    2    1
                                                                                                           loops over the k-points
                                                                                                           --> WE NEED TO INITIALIZE FOR ALL THE 
                                                                                                               k-points in one time!!!
-                                                                                    
+                                                                                                        - BUT WAIT:
+                                                                                                            - WE need to do it inside the outer
+                                                                                                              loop of the main program,
+                                                                                                              THE ONE WHERE WE DEFINE THE CURRENT 
+                                                                                                              k POINT
+                                                                                                              AND WE DID IT IN A SPECIFIC LOOP
+                                                                                                              why???????
+                                                                                                              - BECAUSE THE igk_ and evc_, variables
+                                                                                                                related to the kinetic energy,
+                                                                                                                are related to the k-point in
+                                                                                                                general, and also to the k-point
+                                                                                                                in the current batch od k-points
+                                                                                                                - WE NEED TO REVIEW THIS PART
+                                                                                                                  AND THE REASONS BEHIND IT!!!
+                                                                                             - NEW ISSUE : 
+                                                                                                - THE result were correct only for the k-point 1
+                                                                                                - for the next ones in the batch we had NaNs
+                                                                                                - after the first batch print, we had an ILLEGAL
+                                                                                                  ADDRESS access and the sanytizer reported a 
+                                                                                                  wrong address on the GPU
+                                                                                                - WHY THIS HAPPENS??
+                                                                                                    - SOLUTION:
+                                                                                                        - The problem was in the new version of the
+                                                                                                          subroutine created (my_h_psi_batched)
+                                                                                                        - declaration of hpsi and psi:
+                                                                                                            - cegterg: (npwx,nvecx,n_k)
+                                                                                                            - my_h_psi_batched: (npwx,nvec,n_k)
+                                                                                                        - SO THE DIMENSIONS ARE DIFFERENT
+                                                                                                        - THIS WAS NOT A PROBLEM FOR THE OLD CODE,
+                                                                                                          BECAUSE THE UPDATE OF psi and hpsi WERE 
+                                                                                                          DONE ONLY FOR THE CURRENT THREAD/IBATCH!!
+                                                                                                        - But in the new version, we have that 
+                                                                                                          THE COMPUTATION (cuFFT) IS STILL DONE 
+                                                                                                          ON THE FIRST nbnd ELEMENTS,
+                                                                                                          BUT THE PROBLEM IS THAT WE DO AN ASSIGNMENT
+                                                                                                          INSIDE THE new version of the function
+                                                                                                          to populate the fft_array_batched:
+                                                                                                          - THIS ARRAY, NEEDED FOR THE cuFFT, is
+                                                                                                            populated based on psi AS DEFINED IN THE
+                                                                                                            function
+                                                                                                          - SO THE DISTANCE BETWEEN the Stride:
+                                                                                                            psi(npwx,nbnd,i) and the Stride: 
+                                                                                                            psi(npwx,nbnd,i) WILL BE nbnd, NOT nbndx
+                                                                                                            THIS IS AN ERROR!!!
+                                                                                                            BECAUSE THIS WILL MAKE THE fft_array_batched
+                                                                                                            to be populated on the wrong memory 
+                                                                                                            addresses!!!!! PROBLEM IS THAT WE DO AN 
+                                                                                                            ASSIGNMENT
+                                                                                                            INSIDE THE new version of the function
+                                                                                                            to populate the fft_array_batched:
+                                                                                                            - THIS ARRAY, NEEDED FOR THE cuFFT, is
+                                                                                                              populated based on psi AS DEFINED IN THE
+                                                                                                              function
+                                                                                                            - SO THE DISTANCE BETWEEN the Stride:
+                                                                                                              psi(npwx,nbnd,i) and the Stride: 
+                                                                                                              psi(npwx,nbnd,i+1) WILL BE nbnd, NOT nbndx
+                                                                                                              THIS IS AN ERROR!!!
+                                                                                                              BECAUSE THIS WILL MAKE THE 
+                                                                                                              fft_array_batched
+                                                                                                              to be populated on the wrong memory 
+                                                                                                              addresses!!!!!!!
+                                                                                                              INSTEAD OF HAVING the i+1 stride starting
+                                                                                                              after (npwx x nbndx) elements, it will
+                                                                                                              start after (npwx x nbnd) !!!
+                                                                                                            - The old version had only the first batch,
+                                                                                                              so taking nbnd or nbndx had no impact!!!
+
+
 
                                                     - Profiling of LEONARDO results:
                                                         - to be verified!!
