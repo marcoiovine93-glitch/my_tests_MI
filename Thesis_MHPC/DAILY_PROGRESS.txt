@@ -1325,6 +1325,61 @@ First loop, batch     2    2    1
                                                                                                             - The old version had only the first batch,
                                                                                                               so taking nbnd or nbndx had no impact!!!
                                                                                                       - BUT WE NEED TO TEST IT ON LEONARDO!!
+                                                                                            
+                                                                                                - batched cuFFT in the iterative part:
+                                                                                                    - WE NEED TO UNDERSTAND WHY IT IS NEEDED TO
+                                                                                                      LAUNCH THE KERNEL FROM A MASTER REGION
+                                                                                                    - THE RESULTS ARE CORRECT ONLY FOR nk_batches=1
+                                                                                                    - for nk_batches >1 : illegal access to address
+                                                                                                    - WHY WE HAVE THIS ERROR AT LINE 1356, OR 856??
+                                                                                                        - WE ADDED A PRINT IN THE my_h_psi_batched_iter
+                                                                                                          (the subroutine we created for the iterative
+                                                                                                          part cufft call)
+                                                                                                        - What we see is that the first thread to reach
+                                                                                                          convergence is the master one
+                                                                                                        - THIS MEANS THAT, SINCE THE CALL TO THE 
+                                                                                                          SUBROUTINE IS DONE INSIDE A MASTER REGION,
+                                                                                                          ONCE THE MASTER REACHES CONVERGENCE, the 
+                                                                                                          call is not done anymore and this causes
+                                                                                                          probably some eigenvalues to be slighlty 
+                                                                                                          wrong leading to the illegal access
+                                                                                                        - SO WE REPLACED THE master region with the
+                                                                                                          single region!!!
+                                                                                                        - BUT WE HAD THE ISSUE AT LINE 846
+                                                                                                        - ANALYZING THE PRINTS, IT EMERGES THAT 
+                                                                                                          THERE IS A PROBABLE LACK OF SYNCHRONISM
+                                                                                                          BETWEEN THREADS
+                                                                                                        - SO WE PUT THE COPY BACK PART AFTER THE 
+                                                                                                          KERNEL CALL INTO THE ITERATIVE PART IN 
+                                                                                                          A PROPER IF STATEMENT CHECKING THE 
+                                                                                                          my_done = .false. (not inside the next 
+                                                                                                          part of the code after the kernel call)
+                                                                                                          AND AFTER IT WE PUT AN async wait() and a 
+                                                                                                          omp barrier, and after the barrier 
+                                                                                                          CONTINUE WITH THE NEXT PART OF THE CODE
+                                                                                                          IN THE IF STATEMENT CHECKING THE my_done()
+                                                                                                       - BUT WARNING!!!:
+                                                                                                            - we made a change inside the subroutine
+                                                                                                              my_h_psi_batched_iter:
+                                                                                                              - THE igk and ekin are evaluated 
+                                                                                                                not in the my_slot index (compacted 
+                                                                                                                index introduced to take only the 
+                                                                                                                active ones)
+                                                                                                                BUT in the real k-point index,
+                                                                                                                BECAUSE THEY ARE PARAMETERS 
+                                                                                                                DEPENDING ON THE SPECIFIC K-POINT!!!
+                                                                                                                - THIS CAN be seen in the new 
+                                                                                                                  created subroutine !!!!
+                                                                                                        - ANOTHER WARNING!!:
+                                                                                                            - REMEMBER THAT the cuFFT plans have 
+                                                                                                              been created at the initialization 
+                                                                                                              before the OMP loops!!!
+                                                                                                        - WARNING ABOUT my_h_psi_batched_iter:
+                                                                                                            - we have a loop in a kernel region 
+                                                                                                              to compute the indices got from 
+                                                                                                              the check of the notcnv corresponding
+                                                                                                              to each k-point (each thread)
+
 
 
                                                     - Profiling of LEONARDO results:
