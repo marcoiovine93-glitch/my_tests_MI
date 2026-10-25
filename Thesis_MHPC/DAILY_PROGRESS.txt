@@ -1379,6 +1379,15 @@ First loop, batch     2    2    1
                                                                                                               to compute the indices got from 
                                                                                                               the check of the notcnv corresponding
                                                                                                               to each k-point (each thread)
+                                                                                                            - WE REMOVED THE KERNEL REGION AND
+                                                                                                              IT STILL WORKS??
+                                                                                                              - WE REMOVED it because essentially
+                                                                                                                ibnd_real is declared only on the
+                                                                                                                HOST!!!
+                                                                                                              - WE WANT THAT OUR CHANGES ARE 
+                                                                                                                WORKING ALSO ON DISTRIBUTED
+                                                                                                                SYSTEMS LIKE THE A100 GPUS OF THE
+                                                                                                                LEONARDO CINECA
 
 
 
