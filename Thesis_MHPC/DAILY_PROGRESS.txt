@@ -1388,6 +1388,42 @@ First loop, batch     2    2    1
                                                                                                                 WORKING ALSO ON DISTRIBUTED
                                                                                                                 SYSTEMS LIKE THE A100 GPUS OF THE
                                                                                                                 LEONARDO CINECA
+                                                    
+
+                                                    - PERORMANCE ANALYSIS:
+                                                        - OUR investigations and tests were always done with the "david" input parameter equal to 9
+                                                        - this parameter is the value for which nvec (number of eigenvalues) is multiplied to get
+                                                          nvecx (maximum dimension of the matrix for the Davidson iterative method)
+                                                        - This input param. is important because it manages the iterations and the number of them 
+                                                          for each thread
+                                                        - The problem is that on NSight we see that in the central part of the graph the diaghg 
+                                                          spends a lot of time, especially to execute many cudaMemCopyAsync
+                                                        - Why the time needed for diaghg increases within the iterations?
+                                                            - BECAUSE within the iterations the matrices in the batch (one per thread) become greater
+                                                              and greater (despite the fact that we take only the first nvec eigenvalues anyway)
+                                                              so the performance of cusolverDnZheevj() decreases (we know it works well for small 
+                                                              matrices)
+                                                            - at a certain point the time needed decreases because we reach the maximum dimension (nvecx)
+                                                              and at the same time the number of threads in the batch tends to decrease due to the 
+                                                              gradually reached convergence of each of them
+                                                         - SO WE TRIED TO DECREASE david:
+                                                            - david = 4 : synchronization issue
+                                                            - david = 5 : increase in performance
+                                                            - david = 6 : optimum value --> the execution time decreases of almost the 45-50 % with
+                                                                          respect to the david=9 case
+                                                            - this behaviour is almost visible also for the original code, however in that case the 
+                                                              increase in performance is only around the 10-15 %
+                                                            - for the optimum case we see that the diaghg tends to increase until the maximum nvecx 
+                                                              is reached, then the next iteration are fast due to the reached convergence of each
+                                                              single thread (decrease of the number of matrices in the batch)
+                                                          - REAL SOLUTIONS??:
+                                                            - use the API: 
+                                                                - cusolverDnXsyevBatched
+                                                        - OTHER ISSUE:
+                                                            - The Init part in the cegterg spends too much time (0.757s)
+                                                            - THIS is due to the load of the libraries and resources for ZgemmBatched, however it is
+                                                              strange and it doesn't seem to be solvable with a warm-up
+
 
 
 
@@ -1406,8 +1442,10 @@ First loop, batch     2    2    1
                                                             nsys profile --trace=cuda,openacc,openmp,nvtx  --stats=true  --force-overwrite=true -o profile_cb_davidson  ./cb_davidson.x < ../../examples/si2_11_points.in
                                                             
                                                              
+
+
                                                     - IMPORTANT THING TO CHECK!!:
-                                                      - we didn't do an enter data create for the arrays of piinters to matrices IN THE MAIN, so why
+                                                      - we didn't do an enter data create for the arrays of pointers to matrices IN THE MAIN, so why
                                                         we still DO IT for the host by doing an allocate in the main????????????
                                                         VERIFY!!!!!!!!!!
 
