@@ -1390,7 +1390,7 @@ First loop, batch     2    2    1
                                                                                                                 LEONARDO CINECA
                                                     
 
-                                                    - PERORMANCE ANALYSIS:
+                                                    - PEFORMANCE ANALYSIS:
                                                         - OUR investigations and tests were always done with the "david" input parameter equal to 9
                                                         - this parameter is the value for which nvec (number of eigenvalues) is multiplied to get
                                                           nvecx (maximum dimension of the matrix for the Davidson iterative method)
@@ -1399,13 +1399,13 @@ First loop, batch     2    2    1
                                                         - The problem is that on NSight we see that in the central part of the graph the diaghg 
                                                           spends a lot of time, especially to execute many cudaMemCopyAsync
                                                         - Why the time needed for diaghg increases within the iterations?
-                                                            - BECAUSE within the iterations the matrices in the batch (one per thread) become greater
+                                                            - BECAUSE within the iterations the matrices in the batch(one per thread) become greater
                                                               and greater (despite the fact that we take only the first nvec eigenvalues anyway)
                                                               so the performance of cusolverDnZheevj() decreases (we know it works well for small 
                                                               matrices)
-                                                            - at a certain point the time needed decreases because we reach the maximum dimension (nvecx)
-                                                              and at the same time the number of threads in the batch tends to decrease due to the 
-                                                              gradually reached convergence of each of them
+                                                            - at a certain point the time needed decreases because we reach the maximum 
+                                                              dimension (nvecx) and at the same time the number of threads in the batch tends 
+                                                              to decrease due to the gradually reached convergence of each of them
                                                          - SO WE TRIED TO DECREASE david:
                                                             - david = 4 : synchronization issue
                                                             - david = 5 : increase in performance
@@ -1419,12 +1419,25 @@ First loop, batch     2    2    1
                                                           - REAL SOLUTIONS??:
                                                             - use the API: 
                                                                 - cusolverDnXsyevBatched
+                                                                - We made the script: script_cusolverDnXsyevBatched_test.f90
+                                                                - it was  needed to create an interface in a module:
+                                                                    - module_interface_cusolverDnXsyevBatched.f90
+                                                                        - WARNING!!!!
+                                                                            - we imported the cuSolverParam and cuSolverhandle opaque types?
+                                                                              inside the function definition
+                                                                            - WARNING!!: 
+                                                                              in this case we need to make sure the d_info is a pointer, so we 
+                                                                              define it as a pointer (we don't add the value attribute) in the
+                                                                              definition inside the interface!!!!!!!!!!1
+                                                                            - what is diffference between c_loc, c_devloc, c_devptr ??
+
+
                                                         - OTHER ISSUE:
                                                             - The Init part in the cegterg spends too much time (0.757s)
                                                             - THIS is due to the load of the libraries and resources for ZgemmBatched, however it is
                                                               strange and it doesn't seem to be solvable with a warm-up
 
-
+                                                         
 
 
                                                     - Profiling of LEONARDO results:
