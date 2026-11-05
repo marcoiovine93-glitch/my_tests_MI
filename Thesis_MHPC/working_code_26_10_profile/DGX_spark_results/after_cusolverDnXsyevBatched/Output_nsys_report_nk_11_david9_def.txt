@@ -1,0 +1,801 @@
+marco@spark-1d21:~/WKNG_CODE_PERF_ANALYSIS_26_10/KS_SOLVER_diaghg_modified/build/bin$ nsys profile --trace=cuda,openacc,openmp,nvtx  --stats=true  --force-overwrite=true -o profile_cb_davidson  ./cb_davidson.x < ../../examples/si2_11_points.in
+WARNING: The version of the system or its configuration does not allow enabling CPU profiling:
+- CPU IP/backtrace sampling will be disabled.
+- CPU context switch tracing will be disabled.
+Try the 'nsys status --environment' command to learn more.
+
+Collecting data...
+ nks >
+ Running cb_davidson_main with the following parameters:
+ nk_batches =            11
+In initialize_laxlib_cuda_stream, thread     1         251602192571840
+Initialized default stream in thread     0    1         251602192571840
+In initialize_laxlib_cuda_stream, thread     2         251601938220800
+Initialized default stream in thread     1    2         251601938220800
+In initialize_laxlib_cuda_stream, thread     3         251601864622096
+Initialized default stream in thread     2    3         251601864622096
+In initialize_laxlib_cuda_stream, thread    10         251601867964432
+Initialized default stream in thread     9   10         251601867964432
+In initialize_laxlib_cuda_stream, thread     4         251601897062416
+Initialized default stream in thread     3    4         251601897062416
+In initialize_laxlib_cuda_stream, thread     5         251601897652240
+Initialized default stream in thread     4    5         251601897652240
+In initialize_laxlib_cuda_stream, thread    11         251601898438672
+Initialized default stream in thread    10   11         251601898438672
+In initialize_laxlib_cuda_stream, thread     8         251601866391568
+Initialized default stream in thread     7    8         251601866391568
+In initialize_laxlib_cuda_stream, thread     9         251601865801744
+Initialized default stream in thread     8    9         251601865801744
+In initialize_laxlib_cuda_stream, thread     6         251601867178000
+Initialized default stream in thread     5    6         251601867178000
+In initialize_laxlib_cuda_stream, thread     7         251601865211920
+Initialized default stream in thread     6    7         251601865211920
+           36           36           36        46656
+ ngm =        15353
+ npwx =         1924
+First loop, batch     1    1    0
+First loop, batch     2    2    1
+First loop, batch     5    5    4
+First loop, batch     6    6    5
+First loop, batch     4    4    3
+First loop, batch     3    3    2
+First loop, batch     7    7    6
+First loop, batch     8    8    7
+First loop, batch    11   11   10
+First loop, batch     9    9    8
+First loop, batch    10   10    9
+Second loop, batch     1
+
+          k = 0.0000 0.0000 0.0000 (  1916 PWs)   bands (ev):
+
+   -12.6131 -10.2354 -10.2354 -10.2354 -10.2354  -8.3324  -8.3324  -8.3324
+    -8.3324  -8.3324  -8.3324  -7.3658  -7.3658  -7.3658  -7.3658  -3.0055
+    -3.0055  -3.0055  -3.0055  -3.0055  -3.0055  -1.2526  -1.2526  -1.2526
+    -1.2526  -1.2526  -1.2526  -1.2526  -1.2526  -0.0000  -0.0000   0.0000
+     0.9487   0.9487   0.9487   0.9487   0.9487   0.9487   1.8760   1.8760
+     1.8760   1.8760   3.4243   3.4243   3.4243   3.8895   3.9824   3.9824
+     3.9824   3.9824   3.9824   3.9824   3.9824   3.9824   7.5461   7.9632
+     7.9632   7.9752   7.9752   7.9752   7.9752  11.4826  11.4826  11.4826
+ batch            1 dav_iter, nhpsi, notcnv, ethr             8          429 
+            0   9.9999999999999995E-007
+Second loop, batch     2
+
+          k = 0.0000 0.0000 0.1000 (  1916 PWs)   bands (ev):
+
+   -12.6019 -10.2437 -10.2437 -10.2437 -10.2437  -8.7290  -8.3288  -8.3288
+    -8.3288  -8.3288  -7.9211  -7.3387  -7.3387  -7.3387  -7.3387  -3.0387
+    -3.0387  -3.0387  -3.0387  -2.9948  -2.9948  -1.3308  -1.3308  -1.3308
+    -1.3308  -1.2560  -1.2560  -1.2560  -1.2560  -0.0786  -0.0445  -0.0445
+     0.8754   1.0124   1.0124   1.0124   1.0124   1.0535   1.9471   1.9471
+     1.9471   1.9471   3.3799   3.4859   3.4859   3.9703   3.9723   3.9723
+     3.9723   3.9723   4.0077   4.0077   4.0077   4.0077   7.6166   7.8810
+     7.9758   8.0392   8.0392   8.0392   8.0392  11.1901  11.1901  11.1901
+ batch            2 dav_iter, nhpsi, notcnv, ethr             9          432 
+            0   9.9999999999999995E-007
+Second loop, batch     3
+
+          k = 0.0000 0.0000 0.2000 (  1916 PWs)   bands (ev):
+
+   -12.5683 -10.2675 -10.2675 -10.2675 -10.2675  -9.1100  -8.3183  -8.3183
+    -8.3183  -8.3183  -7.4965  -7.2591  -7.2591  -7.2591  -7.2591  -3.1309
+    -3.1309  -3.1309  -3.1309  -2.9626  -2.9626  -1.5441  -1.5441  -1.5441
+    -1.5441  -1.2656  -1.2656  -1.2656  -1.2656  -0.2966  -0.1689  -0.1689
+     0.8329   1.1905   1.1963   1.1963   1.1963   1.1963   2.1360   2.1360
+     2.1360   2.1360   3.2554   3.6615   3.6615   3.9503   3.9503   3.9503
+     3.9503   4.0830   4.0830   4.0830   4.0830   4.1915   7.6534   7.8194
+     8.0135   8.2246   8.2246   8.2246   8.2246  10.6367  10.6367  10.6367
+ batch            3 dav_iter, nhpsi, notcnv, ethr             8          432 
+            0   9.9999999999999995E-007
+Second loop, batch     4
+
+          k = 0.0000 0.0000 0.3000 (  1916 PWs)   bands (ev):
+
+   -12.5124 -10.3030 -10.3030 -10.3030 -10.3030  -9.4745  -8.3018  -8.3018
+    -8.3018  -8.3018  -7.1317  -7.1317  -7.1317  -7.1317  -7.0595  -3.2646
+    -3.2646  -3.2646  -3.2646  -2.9091  -2.9091  -1.8481  -1.8481  -1.8481
+    -1.8481  -1.2803  -1.2803  -1.2803  -1.2803  -0.6160  -0.3521  -0.3521
+     0.8203   1.3605   1.4833   1.4833   1.4833   1.4833   2.3864   2.3864
+     2.3864   2.3864   3.0715   3.9297   3.9297   3.9410   3.9410   3.9410
+     3.9410   4.2071   4.2071   4.2071   4.2071   4.5029   7.3314   8.0764
+     8.1337   8.5117   8.5117   8.5117   8.5117  10.0409  10.0409  10.0409
+ batch            4 dav_iter, nhpsi, notcnv, ethr             8          432 
+            0   9.9999999999999995E-007
+Second loop, batch     5
+
+          k = 0.0000 0.0000 0.4000 (  1916 PWs)   bands (ev):
+
+   -12.4341 -10.3455 -10.3455 -10.3455 -10.3455  -9.8216  -8.2806  -8.2806
+    -8.2806  -8.2806  -6.9632  -6.9632  -6.9632  -6.9632  -6.6117  -3.4194
+    -3.4194  -3.4194  -3.4194  -2.8344  -2.8344  -2.2025  -2.2025  -2.2025
+    -2.2025  -1.2986  -1.2986  -1.2986  -1.2986  -1.0009  -0.5718  -0.5718
+     0.8369   1.5641   1.8537   1.8537   1.8537   1.8537   2.6325   2.6325
+     2.6325   2.6325   2.8508   3.9858   3.9858   3.9858   3.9858   4.2677
+     4.2677   4.3776   4.3776   4.3776   4.3776   4.8335   6.9932   8.1645
+     8.5368   8.8527   8.8527   8.8527   8.8527   9.4501   9.4501   9.4501
+ batch            5 dav_iter, nhpsi, notcnv, ethr             8          432 
+            0   9.9999999999999995E-007
+Second loop, batch     6
+
+          k = 0.0000 0.0000 0.5000 (  1916 PWs)   bands (ev):
+
+   -12.3337 -10.3899 -10.3899 -10.3899 -10.3899 -10.1506  -8.2564  -8.2564
+    -8.2564  -8.2564  -6.7621  -6.7621  -6.7621  -6.7621  -6.1543  -3.5773
+    -3.5773  -3.5773  -3.5773  -2.7388  -2.7388  -2.5780  -2.5780  -2.5780
+    -2.5780  -1.4263  -1.3185  -1.3185  -1.3185  -1.3185  -0.8101  -0.8101
+     0.8818   1.8018   2.2899   2.2899   2.2899   2.2899   2.6120   2.8117
+     2.8117   2.8117   2.8117   4.1335   4.1335   4.1335   4.1335   4.5915
+     4.5915   4.5915   4.5915   4.6573   4.6573   5.0624   6.7707   8.2777
+     8.8781   8.8781   8.8781   8.8781   8.9510   8.9510   8.9510   8.9510
+ batch            6 dav_iter, nhpsi, notcnv, ethr             8          437 
+            0   9.9999999999999995E-007
+Second loop, batch     7
+
+          k = 0.1000 0.1000 0.5000 (  1916 PWs)   bands (ev):
+
+   -12.3117 -10.7003 -10.3670 -10.3670 -10.1341 -10.1055  -8.6281  -8.6281
+    -7.8768  -7.8768  -7.0513  -6.7565  -6.7565  -6.3706  -6.1731  -3.8077
+    -3.8077  -3.3055  -3.3055  -2.9293  -2.8612  -2.7211  -2.6135  -2.6135
+    -2.1938  -1.6946  -1.5224  -1.4430  -1.4430  -1.1353  -0.8057  -0.6980
+     1.0088   1.9152   1.9684   1.9684   2.6947   2.6947   2.7245   2.7373
+     2.7407   2.9766   2.9766   3.8034   3.8034   4.1274   4.3236   4.3523
+     4.3756   4.6461   4.8965   4.9588   4.9588   5.3597   6.8490   8.1495
+     8.1495   8.2008   8.4630   8.4630   8.4767   8.6656   9.1142   9.3397
+ batch            7 dav_iter, nhpsi, notcnv, ethr             8          432 
+            0   9.9999999999999995E-007
+Second loop, batch     8
+
+          k = 0.2000 0.2000 0.5000 (  1916 PWs)   bands (ev):
+
+   -12.2460 -11.0097 -10.2985 -10.2985 -10.0859  -9.8867  -8.9780  -8.9780
+    -7.5111  -7.5111  -7.2054  -6.7431  -6.7431  -6.2365  -5.9010  -3.9662
+    -3.9662  -3.2335  -3.1432  -3.0197  -3.0197  -2.7430  -2.7430  -2.6680
+    -2.2341  -1.7937  -1.7340  -1.7160  -1.7160  -0.9845  -0.7939  -0.5776
+     1.2494   1.7455   1.7455   2.3179   2.5275   2.5765   2.9831   2.9831
+     2.9990   3.1707   3.1707   3.8365   3.8365   3.9212   4.2458   4.2529
+     4.6105   4.7369   5.2821   5.4498   5.4498   5.7730   7.0438   7.3566
+     7.3566   8.0059   8.0059   8.0167   8.1424   8.3991   8.6844   8.7548
+ batch            8 dav_iter, nhpsi, notcnv, ethr             7          435 
+            0   9.9999999999999995E-007
+Second loop, batch     9
+
+          k = 0.3000 0.3000 0.5000 (  1916 PWs)   bands (ev):
+
+   -12.1371 -11.3013 -10.1848 -10.1848 -10.0106  -9.7706  -9.2974  -9.2974
+    -7.1983  -7.1906  -7.1906  -6.7320  -6.7320  -6.3615  -5.3694  -4.0183
+    -4.0183  -3.4762  -3.4354  -3.0065  -3.0065  -2.8635  -2.7461  -2.7461
+    -2.5808  -1.9672  -1.9672  -1.9421  -1.4012  -0.8743  -0.7793  -0.5435
+     1.4545   1.6397   1.6397   2.2933   2.4361   2.5562   2.5562   2.9706
+     3.0263   3.7077   3.7077   3.9011   4.2199   4.3673   4.5464   4.5477
+     4.5477   5.1974   5.7393   5.8771   5.8771   6.2661   6.6426   6.6426
+     7.2855   7.5427   7.5783   7.5783   7.8183   7.8840   8.0548   8.0951
+ batch            9 dav_iter, nhpsi, notcnv, ethr             7          434 
+            0   9.9999999999999995E-007
+Second loop, batch    10
+
+          k = 0.4000 0.4000 0.5000 (  1916 PWs)   bands (ev):
+
+   -11.9861 -11.5649 -10.0265 -10.0265  -9.9177  -9.7614  -9.5808  -9.5808
+    -7.0439  -6.9494  -6.9494  -6.7427  -6.7427  -6.5578  -4.7875  -3.9319
+    -3.9319  -3.6394  -3.6343  -3.5184  -3.3626  -3.3626  -2.5069  -2.5069
+    -2.4612  -2.1476  -2.1476  -2.1372  -1.0489  -0.8061  -0.7694  -0.6053
+     1.6416   1.6684   1.6684   2.0590   2.1466   2.1466   2.3841   2.6842
+     3.9267   4.1591   4.2614   4.2937   4.2937   4.4158   4.4550   5.2256
+     5.2256   5.5095   6.0252   6.0252   6.2588   6.4520   6.4520   6.6244
+     6.9208   7.1744   7.1744   7.3555   7.4477   7.5441   7.6807   7.7133
+ batch           10 dav_iter, nhpsi, notcnv, ethr             7          436 
+            0   9.9999999999999995E-007
+Second loop, batch    11
+
+          k = 0.5000 0.5000 0.5000 (  1916 PWs)   bands (ev):
+
+   -11.7945 -11.7945  -9.8246  -9.8246  -9.8246  -9.8246  -9.8246  -9.8246
+    -6.8046  -6.8046  -6.8046  -6.8046  -6.8046  -6.8046  -4.1662  -4.1662
+    -3.7002  -3.7002  -3.7002  -3.7002  -3.7002  -3.7002  -2.3121  -2.3121
+    -2.3121  -2.3121  -2.3121  -2.3121  -0.7746  -0.7746  -0.7746  -0.7746
+     1.8404   1.8404   1.8404   1.8404   1.8404   1.8404   2.4637   2.4637
+     4.3507   4.3507   4.3507   4.3507   4.8971   4.8971   4.8971   4.8971
+     4.8971   4.8971   6.7448   6.7448   6.7448   6.7448   6.7448   6.7448
+     6.8315   6.8315   6.8315   6.8315   6.8315   6.8315   7.6428   7.6428
+ batch           11 dav_iter, nhpsi, notcnv, ethr             7          432 
+            0   9.9999999999999995E-007
+     davidson     :     14.19s CPU      2.49s WALL (       1 calls)
+     cegterg      :    155.85s CPU     27.31s WALL (      11 calls)
+     cegterg:init :     42.31s CPU      8.19s WALL (      11 calls)
+     cegterg:diag :     54.20s CPU     10.61s WALL (     110 calls)
+     cegterg:upda :      8.12s CPU      1.03s WALL (      85 calls)
+     cegterg:over :     12.99s CPU      1.21s WALL (      85 calls)
+     cegterg:last :      1.72s CPU      0.20s WALL (      25 calls)
+     Cholesky:    :      0.17s CPU      0.03s WALL (      10 calls)
+                                        0.03s GPU  (      10 calls)
+     XsyevBatched :      1.50s CPU      0.33s WALL (      10 calls)
+                                        0.33s GPU  (      10 calls)
+     final Ztrsm: :      0.00s CPU      0.00s WALL (      10 calls)
+                                        0.00s GPU  (      10 calls)
+     g_psi        :      0.32s CPU      0.04s WALL (      85 calls)
+ 
+  general FFT  routines
+     fftw         :      0.06s CPU      0.01s WALL (     888 calls)
+                                        0.01s GPU  (     888 calls)
+     ffts         :      0.01s CPU      0.00s WALL
+
+Generating '/tmp/nsys-report-764d.qdstrm'
+[1/9] [========================100%] profile_cb_davidson.nsys-rep
+[2/9] [========================100%] profile_cb_davidson.sqlite
+[3/9] Executing 'nvtx_sum' stats report
+
+ Time (%)  Total Time (ns)  Instances     Avg (ns)         Med (ns)        Min (ns)       Max (ns)     StdDev (ns)    Style         Range       
+ --------  ---------------  ---------  ---------------  ---------------  -------------  -------------  ------------  -------  ------------------
+     34.9   27,310,757,360         11  2,482,796,123.6  2,482,583,152.0  2,477,993,552  2,487,614,240   3,272,676.3  PushPop  :cegterg          
+     13.5   10,604,552,976        110     96,405,027.1     84,811,168.0     34,022,416    184,813,104  54,717,415.3  PushPop  :cegterg:diag     
+     13.1   10,275,502,896         99    103,792,958.5    107,744,880.0     34,959,760    189,235,776  56,475,157.6  PushPop  :Cdiaghg call 2   
+     10.5    8,192,810,240         11    744,800,930.9    744,837,040.0    744,659,744    744,868,672      73,505.5  PushPop  :cegterg:init     
+     10.4    8,167,124,608         11    742,465,873.5    742,464,256.0    742,437,824    742,508,352      21,406.3  PushPop  :First Zgemm      
+      6.0    4,681,539,824        110     42,559,452.9     59,482,896.0        781,440    106,227,632  25,107,173.9  PushPop  :cegterg:h_ps     
+      3.2    2,488,374,448          1  2,488,374,448.0  2,488,374,448.0  2,488,374,448  2,488,374,448           0.0  PushPop  :davidson         
+      3.2    2,488,360,272          1  2,488,360,272.0  2,488,360,272.0  2,488,360,272  2,488,360,272           0.0  PushPop  :Cegterg          
+      1.5    1,210,801,024         85     14,244,717.9     14,461,504.0      3,675,568     25,148,288   6,593,798.4  PushPop  :cegterg:over     
+      1.3    1,032,971,392         85     12,152,604.6     11,743,104.0      5,972,576     20,575,984   4,580,654.3  PushPop  :cegterg:upda     
+      0.8      642,671,344         10     64,267,134.4     56,422,744.0     30,754,096    111,634,032  31,220,734.8  PushPop  :cdiaghg          
+      0.7      544,813,888         11     49,528,535.3     49,541,168.0     49,393,216     49,573,680      50,209.3  PushPop  :cdiaghg batched 1
+      0.4      325,695,920         10     32,569,592.0     28,230,176.0      7,507,712     53,516,176  15,722,009.5  PushPop  :XsyevBatched     
+      0.3      199,738,912         25      7,989,556.5      8,463,200.0      1,269,968     14,130,608   5,416,762.7  PushPop  :cegterg:last     
+      0.1       63,841,072         10      6,384,107.2      6,575,000.0        546,544     12,786,368   4,613,803.7  PushPop  :1st Zpotrf:      
+      0.0       36,596,384         85        430,545.7         74,000.0         20,880      3,696,896     936,121.1  PushPop  :g_psi            
+      0.0       32,569,184         10      3,256,918.4      2,951,848.0        589,616      6,297,744   2,103,170.8  PushPop  :Cholesky:        
+      0.0       20,814,480         11      1,892,225.5      1,887,760.0      1,869,184      1,928,848      19,223.6  PushPop  :Second Zgemm     
+      0.0       14,683,008        888         16,534.9         15,744.0         11,744        789,456      26,199.0  PushPop  :fftw             
+      0.0        1,964,800          1      1,964,800.0      1,964,800.0      1,964,800      1,964,800           0.0  PushPop  :ffts             
+      0.0        1,768,064         10        176,806.4        112,848.0         29,344        838,752     237,182.9  PushPop  :2nd Zpotrf:      
+      0.0          910,192         10         91,019.2        102,920.0         29,824        126,688      35,355.6  PushPop  :final Ztrsm:     
+
+[4/9] Executing 'cuda_api_sum' stats report
+
+ Time (%)  Total Time (ns)  Num Calls    Avg (ns)      Med (ns)     Min (ns)    Max (ns)    StdDev (ns)                 Name              
+ --------  ---------------  ---------  ------------  ------------  ----------  -----------  ------------  --------------------------------
+     34.5    1,729,181,504        673   2,569,363.3      56,784.0         608   12,620,592   3,606,601.7  cudaDeviceSynchronize           
+     14.3      717,713,072         39  18,402,899.3  14,219,504.0      51,984   81,370,704  20,633,071.9  cuLibraryLoadData               
+      9.6      483,519,504      2,809     172,132.3         656.0         288   12,497,760     787,068.1  cuStreamSynchronize             
+      6.5      324,961,680      3,596      90,367.5       2,032.0       1,632    5,070,176     286,655.7  cuMemcpyHtoDAsync_v2            
+      6.4      320,570,544        120   2,671,421.2       5,136.0         848   72,824,912  11,928,451.1  cuCtxSynchronize                
+      6.1      304,617,680        266   1,145,179.2     139,944.0         816   39,111,200   4,714,704.5  cuMemAlloc_v2                   
+      5.6      281,779,424        260   1,083,767.0         288.0         160  280,102,544  17,371,008.3  cudaEventCreate                 
+      4.7      233,593,360        565     413,439.6      18,752.0       6,544    3,509,952   1,012,955.8  cuMemcpyDtoHAsync_v2            
+      4.0      198,836,560     27,657       7,189.4       2,624.0       1,920    5,678,560      72,558.7  cudaLaunchKernel                
+      1.7       86,039,072        232     370,858.1      71,064.0         752   11,550,096   1,416,470.2  cuMemFree_v2                    
+      1.3       66,738,656     11,677       5,715.4       3,600.0       1,776      920,304      17,917.7  cuLaunchKernel                  
+      1.3       65,730,144         61   1,077,543.3      19,408.0       2,192   18,165,456   2,440,345.1  cudaMalloc                      
+      0.9       44,026,832        948      46,441.8       2,608.0       1,584   19,763,744     746,199.1  cudaEventSynchronize            
+      0.7       34,688,608         39     889,451.5       7,808.0       1,296   23,380,464   3,878,640.2  cudaGetFuncBySymbol             
+      0.4       19,937,008         13   1,533,616.0     556,288.0       2,544   16,477,904   4,499,190.9  cuMemFreeHost                   
+      0.3       17,164,928          1  17,164,928.0  17,164,928.0  17,164,928   17,164,928           0.0  cuMemHostAlloc                  
+      0.3       16,854,160        270      62,422.8         416.0         128    2,654,368     313,827.2  cudaEventDestroy                
+      0.3       15,010,448         68     220,741.9       6,120.0         544    3,633,360     527,975.5  cudaFree                        
+      0.2        9,223,264        342      26,968.6         352.0         128    8,648,048     467,737.3  cudaEventCreateWithFlags        
+      0.2        8,464,880        110      76,953.5       1,048.0         224    4,926,688     499,173.7  cuEventCreate                   
+      0.1        7,221,168        149      48,464.2       8,848.0       3,936    4,498,864     369,864.6  cudaMemcpyAsync                 
+      0.1        5,725,952      3,321       1,724.2       1,472.0         208      237,520       4,242.3  cuEventRecord                   
+      0.1        4,823,008         12     401,917.3     347,144.0       2,320      917,424     419,390.3  cuMemAllocHost_v2               
+      0.1        3,910,032        368      10,625.1         176.0         128    3,513,664     183,190.4  cuKernelGetFunction             
+      0.1        3,623,600      1,923       1,884.3       1,792.0         320        9,664         603.3  cudaEventRecord                 
+      0.1        3,243,776         33      98,296.2      94,176.0      79,696      204,512      22,609.3  cuModuleLoadData                
+      0.1        2,563,968         34      75,410.8       2,320.0       2,176    2,482,160     425,262.1  cuMemcpyHtoD_v2                 
+      0.0        1,509,808     27,122          55.7          48.0           0        2,576          45.3  cuKernelGetName                 
+      0.0          919,840         11      83,621.8      16,992.0       7,456      373,520     124,139.0  cuStreamCreate                  
+      0.0          801,200         22      36,418.2       1,824.0       1,376      140,576      58,143.1  cudaStreamCreate                
+      0.0          788,352      2,660         296.4         288.0         192          544          48.7  cuEventQuery                    
+      0.0          724,800        386       1,877.7       1,728.0       1,520        5,632         482.7  cuMemsetD32Async                
+      0.0          536,624      1,712         313.4         272.0         208        2,320         141.4  cuEventSynchronize              
+      0.0          251,008         34       7,382.6       5,000.0       2,160       24,032       5,278.2  cudaMemcpy                      
+      0.0          235,392      1,340         175.7         144.0          48        1,776         126.7  cuGetProcAddress_v2             
+      0.0          196,352         33       5,950.1       5,952.0       1,584       12,768       3,801.2  cudaMemsetAsync                 
+      0.0           89,408         11       8,128.0       6,000.0       5,744       21,920       5,127.1  cuMemGetInfo_v2                 
+      0.0           70,144        114         615.3         512.0          96        4,416         637.3  cuLibraryGetKernel              
+      0.0           36,160         24       1,506.7         336.0          64        6,176       1,733.3  cuCtxSetCurrent                 
+      0.0           11,312        135          83.8          48.0          32          496          77.5  cuStreamGetCaptureInfo_v2       
+      0.0            9,728          7       1,389.7       1,440.0         448        2,544         737.2  cuInit                          
+      0.0            4,816          4       1,204.0         168.0          48        4,432       2,154.4  cuModuleGetLoadingMode          
+      0.0            3,680          3       1,226.7       1,232.0       1,200        1,248          24.4  cudaEventQuery                  
+      0.0              752          3         250.7         176.0         176          400         129.3  cudaGetDriverEntryPointByVersion
+      0.0              384          1         384.0         384.0         384          384           0.0  cuFuncGetModule                 
+
+[5/9] Executing 'cuda_gpu_kern_sum' stats report
+
+ Time (%)  Total Time (ns)  Instances   Avg (ns)     Med (ns)    Min (ns)    Max (ns)   StdDev (ns)                                                  Name                                                
+ --------  ---------------  ---------  -----------  -----------  ---------  ----------  -----------  ----------------------------------------------------------------------------------------------------
+     15.7      209,748,288        178  1,178,361.2    443,392.0     60,672   8,375,680  1,638,234.7  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_32x16_16x3_nn_align1>(T1::Params)                
+     15.2      202,717,152         97  2,089,867.5  1,076,352.0     64,064  12,495,712  2,713,928.4  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_32x16_16x3_hn_align1>(T1::Params)                
+      8.6      115,282,112        380    303,374.0    296,000.0    243,616     674,976     40,984.4  my_h_psi_batched_iter_59_gpu                                                                        
+      7.7      102,390,016      1,776     57,652.0     58,832.0      6,976     220,224      8,531.3  void regular_fft<(unsigned int)36, EPT<(unsigned int)6>, (unsigned int)32, (unsigned int)5, (paddin…
+      4.7       62,293,152         65    958,356.2    486,432.0    121,760   4,807,264  1,028,016.5  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_32x16_16x3_nh_align1>(T1::Params)                
+      3.7       49,996,064        888     56,301.9     57,472.0      6,880      88,224      7,559.8  void vector_fft<(unsigned int)36, EPT<(unsigned int)6>, (unsigned int)16, (unsigned int)10, (paddin…
+      2.8       37,428,256        713     52,494.0     47,840.0     26,176     163,520     15,315.8  void cuds_symv_alg7_stage1_upper<double2, (int)4>(long, const T1 *, long, long, const T1 *, long, l…
+      2.6       34,651,232        380     91,187.5     90,816.0     67,872     220,512     10,804.1  my_h_psi_batched_iter_81_gpu                                                                        
+      2.4       32,577,376      4,690      6,946.1      6,400.0      3,296      49,056      3,101.8  std::enable_if<T7, void>::type internal::gemvx::kernel<int, int, double2, double2, double2, double2…
+      2.1       28,261,376         85    332,486.8    332,608.0    240,192     415,456     22,703.4  cegterg_mod_cegterg_1053_gpu                                                                        
+      1.7       22,418,816          6  3,736,469.3  4,414,192.0    581,472   4,962,336  1,692,034.9  void laed4_par<stedc_params_<double2, double, (int)8, (int)512, (int)256>>(int, int, int, int *, T1…
+      1.6       21,825,184          8  2,728,148.0  2,667,840.0    502,976   4,240,352  1,173,364.4  void laed4_par<stedc_params_<double2, double, (int)8, (int)256, (int)256>>(int, int, int, int *, T1…
+      1.5       20,105,088          3  6,701,696.0  6,670,656.0  6,668,288   6,766,144     55,826.2  void sytrd4_cta<sytrd_params<double2, (int)16, (int)16, (int)128, (int)32, (int)0, (int)1, (int)2>,…
+      1.5       19,530,048         64    305,157.0    298,480.0    290,240     617,248     40,808.6  my_h_psi_batched_32_gpu                                                                             
+      1.4       19,105,024         49    389,898.4    438,656.0     69,248     604,320    168,743.0  void batch_trsm_left_kernel<double2, (int)64, (int)4, (int)3, (bool)0, (bool)1, (bool)0>(cublasTrsm…
+      1.4       18,994,752         49    387,648.0    437,632.0     68,416     606,080    168,654.6  void batch_trsm_left_kernel<double2, (int)64, (int)4, (int)3, (bool)0, (bool)0, (bool)0>(cublasTrsm…
+      1.4       18,302,592         49    373,522.3    423,040.0     65,280     573,472    160,890.8  void batch_trsm_right_kernel<double2, (int)64, (int)4, (int)3, (bool)0, (bool)1, (bool)0>(cublasTrs…
+      1.1       15,328,128         85    180,330.9    179,328.0    144,288     218,784     14,009.2  cegterg_mod_cegterg_1085_gpu                                                                        
+      1.1       15,209,952         85    178,940.6    179,840.0    143,168     201,792     10,439.8  cegterg_mod_cegterg_1084_gpu                                                                        
+      1.1       14,810,304         39    379,751.4    215,936.0    109,920   1,167,168    299,599.4  void potrf_syrk_nc_kernel<double2, (int)5, (int)6, (int)3, (int)3, (int)4>(int, int, int, int, int,…
+      1.1       14,779,968          5  2,955,993.6  3,598,304.0    400,160   3,605,120  1,428,801.1  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_16x32_16x3_hn_align1>(T1::Params)                
+      1.1       14,230,624      1,207     11,790.1     11,488.0      2,880      50,336      5,770.8  void cuds_symv_up_direct_kernel<double2, (int)4, (int)1>(long, const T1 *, long, long, const T1 *, …
+      1.0       13,075,392      2,370      5,517.0      4,992.0      2,816      31,808      2,096.0  std::enable_if<!T7, void>::type internal::gemvx::kernel<int, int, double2, double2, double2, double…
+      0.8       11,062,048          9  1,229,116.4  1,288,576.0    215,200   1,854,432    577,394.1  void laed4_par<stedc_params_<double2, double, (int)8, (int)128, (int)256>>(int, int, int, int *, T1…
+      0.8       11,031,744        713     15,472.3     15,232.0     15,168      32,448      1,355.4  void larfg_kernel_fast<double2, double, (int)9>(long, T1 *, long, T1 *, long, long, T1 *, long)     
+      0.8       10,724,096        444     24,153.4     24,160.0      7,648      73,824      4,842.4  fft_scalar_cufft_cfft3d_gpu_batched_815_gpu                                                         
+      0.8       10,679,744      1,402      7,617.5      7,136.0      3,328      43,296      3,199.8  std::enable_if<T7, void>::type internal::gemvx::kernel<int, int, double2, double2, double2, double2…
+      0.7        9,004,384         12    750,365.3    849,792.0     47,488   1,616,224    616,518.5  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_32x32_16x4_nn_align1>(T1::Params)                
+      0.6        8,206,176          6  1,367,696.0  1,453,856.0    223,008   1,930,368    636,411.1  void laed3_epi2<stedc_params_<double2, double, (int)8, (int)512, (int)256>>(int, int, int, int *, T…
+      0.5        6,967,968        830      8,395.1      8,224.0      8,128      26,816      1,109.8  void larfg_kernel_fast<double2, double, (int)8>(long, T1 *, long, T1 *, long, long, T1 *, long)     
+      0.5        6,832,640        380     17,980.6     17,568.0      4,480      39,904      3,292.8  my_h_psi_batched_iter_32_gpu                                                                        
+      0.5        6,538,624      1,824      3,584.8      3,392.0      1,504      26,400      1,521.6  std::enable_if<!T7, void>::type internal::gemvx::kernel<int, int, double2, double2, double2, double…
+      0.5        6,413,824        145     44,233.3     37,600.0      7,936     100,864     26,941.7  void potrf_syrk_T16_nc_kernel<double2, (int)5, (int)4, (int)4, (int)5, (int)4>(int, int, int, int, …
+      0.5        6,179,360         10    617,936.0    641,264.0    144,800   1,023,936    305,152.3  void laed4_par<stedc_params_<double2, double, (int)8, (int)64, (int)256>>(int, int, int, int *, T1:…
+      0.4        6,004,992          6  1,000,832.0  1,052,208.0    651,072   1,162,144    199,974.3  void sytrd4_cta<sytrd_params<double2, (int)16, (int)16, (int)64, (int)32, (int)0, (int)1, (int)2>, …
+      0.4        5,569,984         85     65,529.2     69,696.0      5,920     111,808     29,527.6  cegterg_mod_cegterg_1331_gpu                                                                        
+      0.4        5,489,856         64     85,779.0     82,896.0     82,240     207,456     16,340.9  my_h_psi_batched_49_gpu                                                                             
+      0.4        4,888,672          6    814,778.7    852,896.0    658,208     877,344     84,931.7  void laed2_par<stedc_params_<double2, double, (int)8, (int)512, (int)256>>(int, int, int, int *, T1…
+      0.4        4,836,416          6    806,069.3    809,952.0    787,808     819,424     11,845.1  void sytrd4_gpu<sytrd_params<double2, (int)32, (int)8, (int)512, (int)32, (int)1, (int)1, (int)2>>(…
+      0.3        4,540,352        380     11,948.3     11,680.0      9,408      57,536      3,798.5  my_h_psi_batched_iter_93_gpu                                                                        
+      0.3        4,378,912        184     23,798.4     23,632.0     16,544      36,288      6,371.8  void potrfBatch_trsm_lower<double2, double, (int)16>(int, int, int, int, int, int, T1 **, unsigned …
+      0.3        4,158,912      1,207      3,445.7      3,360.0      2,816      18,176        809.8  void latrd_compute_w_kernel<double2, (int)8, (int)1>(const T1 *, long, long, const T1 *, long, cons…
+      0.3        4,149,984        713      5,820.5      5,600.0      5,152      24,992      1,463.4  void latrd_compute_w_kernel<double2, (int)9, (int)1>(const T1 *, long, long, const T1 *, long, cons…
+      0.3        4,069,504      1,046      3,890.5      3,776.0      2,368      14,912      1,022.1  std::enable_if<!T7, void>::type internal::gemvx::kernel<int, int, double2, double2, double2, double…
+      0.3        4,017,280        713      5,634.3      5,760.0      4,000      21,824      1,114.2  void cuds_symv_alg7_stage2_kernel<double2, (int)5, (int)4>(long, long, const T1 *, long, long, cons…
+      0.3        3,899,520          8    487,440.0    500,288.0    393,408     510,336     38,426.4  void laed2_par<stedc_params_<double2, double, (int)8, (int)256, (int)256>>(int, int, int, int *, T1…
+      0.3        3,879,680         85     45,643.3     52,064.0      4,992      90,560     22,752.7  cegterg_mod_cegterg_1389_gpu                                                                        
+      0.3        3,809,536          6    634,922.7    644,192.0    565,536     690,432     55,320.1  void sytrd4_gpu<sytrd_params<double2, (int)32, (int)8, (int)256, (int)32, (int)1, (int)1, (int)2>>(…
+      0.3        3,561,344         11    323,758.5    331,328.0    255,168     358,112     29,288.9  cegterg_mod_cegterg_327_gpu                                                                         
+      0.3        3,458,976          8    432,372.0    461,728.0     66,784     651,456    190,881.3  void laed3_epi2<stedc_params_<double2, double, (int)8, (int)256, (int)256>>(int, int, int, int *, T…
+      0.2        3,072,256         10    307,225.6    319,824.0     90,624     487,712    141,951.6  void laed4_par<stedc_params_<double2, double, (int)8, (int)32, (int)256>>(int, int, int, int *, T1:…
+      0.2        2,911,392         10    291,139.2    302,448.0     91,104     467,616    130,349.6  void laed4_par<stedc_params_<double2, double, (int)8, (int)16, (int)256>>(int, int, int, int *, T1:…
+      0.2        2,747,968      4,059        677.0        544.0        480      17,088        690.5  cegterg_mod_cegterg_750_gpu                                                                         
+      0.2        2,627,424         10    262,742.4    253,392.0      8,704     568,096    214,445.2  laxlib_cdiaghg_gpu_batched_1042_gpu                                                                 
+      0.2        2,535,296        194     13,068.5     12,992.0      3,840      18,336      1,305.6  void potrf_cta_lower_batch<double2, double, (int)16>(int, int, int, T1 **, unsigned long, int *)    
+      0.2        2,481,152         10    248,115.2    227,872.0     12,288     564,032    215,405.6  laxlib_cdiaghg_gpu_batched_654_gpu                                                                  
+      0.2        2,359,168         10    235,916.8    226,896.0    132,320     367,200     90,562.7  void steqr_ker<stedc_params_<double2, double, (int)8, (int)16, (int)128>, double, (int)0>(long, T1:…
+      0.2        2,313,792         85     27,221.1     27,392.0      2,400      75,232     14,190.7  cb_g_psi_batched_17_gpu                                                                             
+      0.2        2,175,840      1,905      1,142.2        992.0        768      21,120        869.8  void latrd_trans_kernel<double2, (int)8>(long, const T1 *, long, long, T1 *, long, const T1 *, long…
+      0.2        2,141,504      3,810        562.1        480.0        416      18,304        807.6  void latrd_set_real_kernel<double2>(T1 *, long, int)                                                
+      0.2        2,126,752         21    101,273.9    101,504.0     98,368     102,720      1,164.6  void larft_T_64_batch<double2>(int, T1 *, int, long, const T1 *, long)                              
+      0.2        2,049,856         11    186,350.5    189,856.0    156,288     199,168     12,180.5  cegterg_mod_cegterg_348_gpu                                                                         
+      0.2        2,045,056         11    185,914.2    185,664.0    175,840     195,616      5,575.5  cegterg_mod_cegterg_347_gpu                                                                         
+      0.1        1,980,768         85     23,303.2     18,720.0      9,088      70,176     11,211.6  cegterg_mod_cegterg_988_gpu                                                                         
+      0.1        1,827,840         85     21,504.0     27,232.0      2,240      32,288      9,017.3  cegterg_mod_cegterg_1012_gpu                                                                        
+      0.1        1,780,896         85     20,951.7     20,640.0      2,432      44,416     11,573.4  cegterg_mod_cegterg_911_gpu                                                                         
+      0.1        1,723,424      1,044      1,650.8      1,184.0        864      26,784      2,203.6  cegterg_mod_cegterg_742_gpu                                                                         
+      0.1        1,660,480        322      5,156.8      5,056.0      4,928       8,480        263.4  void larfg_kernel_fast<double2, double, (int)7>(long, T1 *, long, T1 *, long, long, T1 *, long)     
+      0.1        1,509,120      1,920        786.0        672.0        576      51,488      1,428.9  void latrd_copy_E_from_A_kernel<double2, double>(T1 *, long, T2 *, long, int)                       
+      0.1        1,392,288          9    154,698.7    153,600.0    152,736     158,144      2,044.6  void laed2_par<stedc_params_<double2, double, (int)8, (int)128, (int)256>>(int, int, int, int *, T1…
+      0.1        1,320,800          9    146,755.6    153,824.0     23,840     229,184     73,780.0  void laed3_epi2<stedc_params_<double2, double, (int)8, (int)128, (int)256>>(int, int, int, int *, T…
+      0.1        1,233,536         56     22,027.4     16,768.0      1,152      69,088     19,030.2  void setup_vhat_u_kernel<double2, (int)16>(long, long, const T1 *, long, long, T1 *, long, long)    
+      0.1        1,145,984          1  1,145,984.0  1,145,984.0  1,145,984   1,145,984          0.0  void sytrd4_cta<sytrd_params<double2, (int)16, (int)32, (int)64, (int)32, (int)0, (int)1, (int)2>, …
+      0.1        1,144,768         64     17,887.0     17,728.0     16,608      23,264      1,039.4  my_h_psi_batched_25_gpu                                                                             
+      0.1        1,129,504         10    112,950.4     82,464.0      3,840     273,440    106,340.7  void lacpy_kernel<double2, double2, (int)5, (int)3>(long, long, const T1 *, long, long, T2 *, long,…
+      0.1        1,115,072         85     13,118.5     13,440.0        608      34,368      6,685.4  cegterg_mod_cegterg_1053_gpu__1                                                                     
+      0.1        1,111,680         10    111,168.0    108,128.0     16,832     257,184     81,410.9  void lansy_M_stage1<double2, double, (int)8>(long, const T1 *, long, long, T2 *, long, int)         
+      0.1        1,088,064          7    155,437.7    160,128.0     21,056     274,176     88,881.8  void gemmcn_skinny_kernel<double2, (int)2, (int)4>(int, int, int, const T1 *, long, long, const T1 …
+      0.1        1,043,168          5    208,633.6     63,392.0     62,976     496,896    205,301.6  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_32x32_16x4_hn_align1>(T1::Params)                
+      0.1        1,012,992         20     50,649.6     49,488.0     35,392      72,896     15,200.7  void syherk_kernel_ldgsts<int, double2, (int)32, (int)32, (int)1, (int)8, (int)32, (int)8, (int)16,…
+      0.1          899,840         85     10,586.4     10,208.0      1,888      27,808      7,410.0  cegterg_mod_cegterg_1232_gpu                                                                        
+      0.1          818,528         85      9,629.7      6,560.0        864      50,080     10,430.7  cegterg_mod_cegterg_1390_gpu                                                                        
+      0.1          770,272         10     77,027.2     71,296.0      2,944     189,984     72,243.2  void merge_ker<double2, double, (int)128, (int)1, (int)1>(long, long, T2 *, T2 *, long, int *, T2 *…
+      0.1          765,120          6    127,520.0    136,592.0     49,728     169,984     46,111.3  void laed3_epi1<stedc_params_<double2, double, (int)8, (int)512, (int)256>>(int, int, int, int *, T…
+      0.1          737,056         10     73,705.6     73,088.0     71,200      76,800      2,515.7  void laed2_par<stedc_params_<double2, double, (int)8, (int)64, (int)256>>(int, int, int, int *, T1:…
+      0.1          702,144          7    100,306.3     99,712.0     97,792     106,112      2,662.5  void larft_T_64<double2>(int, T1 *, int, long, const T1 *, long)                                    
+      0.1          673,312          8     84,164.0     82,256.0     28,576     125,920     34,193.2  void laed3_epi1<stedc_params_<double2, double, (int)8, (int)256, (int)256>>(int, int, int, int *, T…
+      0.0          656,512         64     10,258.0      9,584.0      9,216      26,880      2,274.1  my_h_psi_batched_69_gpu                                                                             
+      0.0          635,232        109      5,827.8        928.0        480      46,400     10,971.7  cegterg_mod_cegterg_1340_gpu                                                                        
+      0.0          609,376          2    304,688.0    304,688.0    124,384     484,992    254,988.4  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_16x32_16x3_nn_align1>(T1::Params)                
+      0.0          518,528         10     51,852.8     54,752.0      9,728      88,224     28,029.9  void laed3_epi2<stedc_params_<double2, double, (int)8, (int)64, (int)256>>(int, int, int, int *, T1…
+      0.0          491,008         14     35,072.0     40,752.0     23,232      44,192      8,893.9  cegterg_mod_cegterg_1547_gpu                                                                        
+      0.0          485,376          1    485,376.0    485,376.0    485,376     485,376          0.0  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_64x32_16x4_nh_align1>(T1::Params)                
+      0.0          484,256         10     48,425.6     33,376.0      3,360     133,088     50,426.1  void merge_ker<double2, double, (int)128, (int)0, (int)1>(long, long, T2 *, T2 *, long, int *, T2 *…
+      0.0          447,712         53      8,447.4      4,544.0      1,216      48,992     10,541.8  void laed2_copy<double2, double, (int)256>(int, int, T2 *, int, int *, int *, T2 *, int, int)       
+      0.0          377,664          1    377,664.0    377,664.0    377,664     377,664          0.0  void zgemm_largek<(bool)1, (bool)0, (bool)1, (bool)0, (int)4, (int)3, (int)4, (int)3, (int)3, (int)…
+      0.0          365,472         10     36,547.2     36,240.0     35,456      38,240        936.3  void laed2_par<stedc_params_<double2, double, (int)8, (int)32, (int)256>>(int, int, int, int *, T1:…
+      0.0          346,880          9     38,542.2     39,616.0     15,584      62,944     18,348.7  void laed3_epi1<stedc_params_<double2, double, (int)8, (int)128, (int)256>>(int, int, int, int *, T…
+      0.0          255,424          4     63,856.0     63,120.0     62,912      66,272      1,614.1  void syherk_kernel_ldgsts<int, double2, (int)32, (int)16, (int)3, (int)32, (int)8, (int)16, (int)8,…
+      0.0          247,008        234      1,055.6        864.0        704       4,096        621.0  void offsetPointerArray_kernel<double2>(T1 **, const T1 **, int, int, int, T1 **, const T1 **, int,…
+      0.0          243,584        109      2,234.7      1,216.0        960      15,072      3,575.7  cegterg_mod_cegterg_1341_gpu                                                                        
+      0.0          240,992         55      4,381.7      4,352.0      4,288       4,960        115.0  void larfg_kernel_fast<double2, double, (int)6>(long, T1 *, long, T1 *, long, long, T1 *, long)     
+      0.0          229,056         10     22,905.6     21,376.0     18,880      30,656      4,397.6  void laed2_par<stedc_params_<double2, double, (int)8, (int)16, (int)256>>(int, int, int, int *, T1:…
+      0.0          206,400         10     20,640.0     21,808.0      5,376      33,184     10,187.2  void laed3_epi2<stedc_params_<double2, double, (int)8, (int)32, (int)256>>(int, int, int, int *, T1…
+      0.0          201,408         99      2,034.4      1,536.0      1,248       6,752      1,036.6  cegterg_mod_cegterg_1407_gpu                                                                        
+      0.0          197,856         10     19,785.6     10,544.0      3,008      70,112     22,086.3  void lascl_kernel<double2, double, (int)8>(long, long, T1 *, long, long, T2 *, int, int)            
+      0.0          197,440         10     19,744.0     20,720.0      4,416      33,152     10,287.3  void laed3_epi1<stedc_params_<double2, double, (int)8, (int)64, (int)256>>(int, int, int, int *, T1…
+      0.0          193,312          3     64,437.3     63,904.0     63,744      65,664      1,065.3  void cutlass::Kernel2<cutlass_80_tensorop_z884gemm_32x32_16x4_nh_align1>(T1::Params)                
+      0.0          167,104         10     16,710.4     17,552.0      3,904      27,488      8,396.9  void laed3_epi2<stedc_params_<double2, double, (int)8, (int)16, (int)256>>(int, int, int, int *, T1…
+      0.0          161,536         10     16,153.6     13,648.0      3,232      39,136     11,521.3  laxlib_cdiaghg_gpu_batched_1033_gpu                                                                 
+      0.0          147,872         11     13,442.9     12,256.0        608      35,040     11,718.0  cegterg_mod_cegterg_327_gpu__1                                                                      
+      0.0          135,008        109      1,238.6      1,216.0        928       2,144        236.5  cegterg_mod_cegterg_1343_gpu                                                                        
+      0.0          127,424          2     63,712.0     63,712.0     61,632      65,792      2,941.6  void gemvNSP_kernel<double2, double2, double2, double2, (int)1, (int)16, (int)4, (int)1024, (bool)0…
+      0.0          123,072         10     12,307.2     12,720.0      3,296      19,392      5,856.3  void laed3_epi1<stedc_params_<double2, double, (int)8, (int)32, (int)256>>(int, int, int, int *, T1…
+      0.0          120,128         28      4,290.3      5,456.0      1,248       6,016      1,812.3  void larft_transpose_kernel<double2, (int)16, (bool)0>(long, T1 *, long, long)                      
+      0.0          117,056         10     11,705.6     12,464.0      3,072      18,976      5,667.0  void laed3_epi1<stedc_params_<double2, double, (int)8, (int)16, (int)256>>(int, int, int, int *, T1…
+      0.0          108,416         60      1,806.9      1,792.0      1,344       2,496        272.9  void gemmk1_kernel<int, double2, (int)256, (int)5, (bool)0, (bool)0, (bool)0, (bool)0, cublasGemvTe…
+      0.0          107,776         61      1,766.8        928.0        640      10,016      2,272.9  dp_dev_memset_async_c2d_800_gpu                                                                     
+      0.0          106,592          9     11,843.6      7,392.0      4,160      22,784      7,993.3  void epilogue<sytrd_params<double2, (int)32, (int)8, (int)512, (int)32, (int)16, (int)1, (int)2>, (…
+      0.0          105,888         30      3,529.6      3,536.0      2,656       4,384        529.7  std::enable_if<!T7, void>::type internal::gemvx::kernel<int, int, double2, double2, double2, double…
+      0.0           99,744        109        915.1        896.0        480       1,504        202.8  cegterg_mod_cegterg_1342_gpu                                                                        
+      0.0           89,952         10      8,995.2     10,080.0      3,456      12,960      3,736.3  void scale_max<double, (int)32, (int)32, (int)1>(long, long, T1 *, T1 *, T1 *, int *)               
+      0.0           68,768         11      6,251.6      6,016.0      4,192       9,312      1,328.0  cegterg_mod_cegterg_682_gpu                                                                         
+      0.0           62,496        109        573.4        448.0        416       1,696        226.1  cegterg_mod_cegterg_1349_gpu                                                                        
+      0.0           58,848         30      1,961.6        848.0        576       5,216      1,820.7  copy_info_kernel(int, int *)                                                                        
+      0.0           46,144         10      4,614.4      4,320.0      3,616       8,288      1,328.9  void lansy_M_stage2<double, (int)8>(T1, T1, long, T1 *, long, T1 *, T1 *)                           
+      0.0           41,600         11      3,781.8      3,072.0      1,088      10,304      2,633.2  void transpose<sytrd_params<double2, (int)32, (int)8, (int)512, (int)32, (int)16, (int)1, (int)2>, …
+      0.0           40,736         15      2,715.7      2,656.0      1,440       4,128        854.5  void copy_trdiag_block<double2, double>(T1 *, long, long, T2 *, long, T2 *, long, long, int)        
+      0.0           38,144         11      3,467.6      3,488.0      1,088       6,016      1,865.2  cegterg_mod_cegterg_683_gpu                                                                         
+      0.0           36,480          8      4,560.0      3,872.0      3,392      10,144      2,267.1  std::enable_if<!T7, void>::type internal::gemvx::kernel<int, int, double2, double2, double2, double…
+      0.0           34,656         11      3,150.5      3,168.0      1,632       5,696      1,444.9  cegterg_mod_cegterg_607_gpu                                                                         
+      0.0           25,920         10      2,592.0      2,096.0      1,248       4,224      1,204.8  void potrf_set_info<(int)256>(int, int, int *)                                                      
+      0.0           21,184          1     21,184.0     21,184.0     21,184      21,184          0.0  void epilogue<sytrd_params<double2, (int)32, (int)8, (int)512, (int)32, (int)16, (int)1, (int)2>, (…
+      0.0           16,928         10      1,692.8      1,680.0      1,312       2,048        261.5  void scale_max<double, (int)32, (int)128, (int)0>(long, long, T1 *, T1 *, T1 *, int *)              
+      0.0           14,880         10      1,488.0      1,488.0      1,184       1,792        198.6  void cuds_scal_batch_kernel<double, (int)256>(int, const T1 *, T1 *, long long)                     
+      0.0           14,720         11      1,338.2      1,088.0        960       2,880        592.4  cegterg_mod_cegterg_661_gpu                                                                         
+      0.0           13,536          1     13,536.0     13,536.0     13,536      13,536          0.0  void transpose<sytrd_params<double2, (int)32, (int)8, (int)512, (int)32, (int)16, (int)1, (int)2>, …
+      0.0           10,944         10      1,094.4      1,088.0      1,056       1,120         20.2  void potrf_reset_info<(int)256>(int, int *)                                                         
+      0.0            8,032         10        803.2        720.0        704       1,536        258.4  xx_set_info_ker(int, int *, int)                                                                    
+      0.0            5,984          7        854.9        640.0        608       2,144        568.8  __pgi_dev_cumemset_16n                                                                              
+      0.0            1,984          3        661.3        672.0        640         672         18.5  __pgi_dev_cumemset_4n                                                                               
+      0.0            1,600          1      1,600.0      1,600.0      1,600       1,600          0.0  void scal_kernel<double2, double2, (int)1, (bool)1, (int)5, (int)4, (int)4, (int)4>(cublasTranspose…
+
+[6/9] Executing 'cuda_gpu_mem_time_sum' stats report
+
+ Time (%)  Total Time (ns)  Count  Avg (ns)  Med (ns)  Min (ns)  Max (ns)   StdDev (ns)            Operation           
+ --------  ---------------  -----  --------  --------  --------  ---------  -----------  ------------------------------
+     89.9       36,247,488  3,661   9,901.0     416.0       160  5,055,904    175,031.6  [CUDA memcpy Host-to-Device]  
+      4.7        1,914,400    568   3,370.4   2,592.0       544     33,632      3,781.1  [CUDA memcpy Device-to-Host]  
+      3.3        1,339,328    149   8,988.8   1,120.0       576     66,432     15,182.4  [CUDA memcpy Device-to-Device]
+      2.0          815,328    419   1,945.9     448.0       192    147,328     11,950.8  [CUDA memset]                 
+
+[7/9] Executing 'cuda_gpu_mem_size_sum' stats report
+
+ Total (MB)  Count  Avg (MB)  Med (MB)  Min (MB)  Max (MB)  StdDev (MB)            Operation           
+ ----------  -----  --------  --------  --------  --------  -----------  ------------------------------
+    154.636    419     0.369     0.000     0.000    33.457        2.969  [CUDA memset]                 
+    107.190  3,661     0.029     0.000     0.000     4.336        0.140  [CUDA memcpy Host-to-Device]  
+     76.893    149     0.516     0.001     0.001     1.970        0.869  [CUDA memcpy Device-to-Device]
+      0.109    568     0.000     0.000     0.000     0.061        0.003  [CUDA memcpy Device-to-Host]  
+
+[8/9] Executing 'openmp_sum' stats report
+SKIPPED: /home/marco/WKNG_CODE_PERF_ANALYSIS_26_10/KS_SOLVER_diaghg_modified/build/bin/profile_cb_davidson.sqlite does not contain OpenMP event data.
+[9/9] Executing 'openacc_sum' stats report
+
+ Time (%)  Total Time (ns)  Num Calls    Avg (ns)      Med (ns)     Min (ns)    Max (ns)   StdDev (ns)                        Name                     
+ --------  ---------------  ---------  ------------  ------------  ----------  ----------  ------------  ----------------------------------------------
+     62.7    3,827,881,936        108  35,443,351.3  31,700,016.0   2,200,240  72,834,544  26,969,591.9  Wait@cegterg.f90:1378                         
+      4.7      287,518,432        380     756,627.5     757,928.0     352,624   1,241,328      83,731.2  Enter Data@my_h_psi_batched_iter.f90:93       
+      4.7      284,814,256      1,520     187,377.8       2,504.0       1,840   1,225,664     323,018.9  Enqueue Upload@my_h_psi_batched_iter.f90:93   
+      3.9      235,362,784         85   2,768,973.9   3,156,736.0     258,480   3,533,008     778,736.8  Exit Data@cegterg.f90:1052                    
+      3.7      223,679,536         85   2,631,524.0   3,147,152.0      14,416   3,510,896   1,008,842.1  Enqueue Download@cegterg.f90:1059             
+      3.2      195,602,480         99   1,975,782.6   2,160,320.0         880   3,279,984     982,962.0  Wait@cegterg.f90:1090                         
+      2.8      169,954,816         11  15,450,437.8  14,066,496.0   1,357,056  33,337,536  10,597,114.0  Enter Data@cegterg.f90:277                    
+      1.3       79,971,888         10   7,997,188.8   8,075,992.0   7,287,616   8,079,952     249,327.4  Device Init                                   
+      0.9       57,580,096         99     581,617.1       2,256.0         912  12,498,512   2,120,050.1  Wait@cegterg.f90:1153                         
+      0.9       57,368,608         99     579,480.9       2,032.0       1,008  12,487,264   2,115,563.3  Wait@cegterg.f90:1211                         
+      0.8       48,022,688         64     750,354.5     753,264.0      39,392   1,062,944     101,103.5  Wait@my_h_psi_batched.f90:67                  
+      0.7       42,074,640      4,059      10,365.8       7,088.0       2,752     875,104      21,734.3  Compute Construct@cegterg.f90:750             
+      0.6       37,894,928         99     382,777.1       2,192.0         864   8,340,720   1,458,435.9  Wait@cegterg.f90:900                          
+      0.6       35,357,616      4,059       8,710.9       5,520.0       2,400     873,392      21,526.9  Enqueue Launch@cegterg.f90:750                
+      0.5       32,835,232      1,188      27,639.1      18,752.0       2,000     134,064      27,672.8  Wait@cegterg.f90:1318                         
+      0.5       31,445,024         11   2,858,638.5   3,200,048.0      53,696   5,071,488   1,495,132.4  Update@cb_davidson_main.f90:201               
+      0.5       31,431,712         11   2,857,428.4   3,199,312.0      52,176   5,070,752   1,495,601.3  Enqueue Upload@cb_davidson_main.f90:201       
+      0.4       25,728,448         11   2,338,949.8   2,395,376.0   1,356,704   3,113,664     578,545.6  Wait@cegterg.f90:353                          
+      0.3       18,921,392         99     191,125.2       3,760.0       1,344   4,111,056     750,830.0  Wait@cegterg.f90:768                          
+      0.3       18,738,944          1  18,738,944.0  18,738,944.0  18,738,944  18,738,944           0.0  Enter Data@cb_davidson_main.f90:176           
+      0.3       17,778,432         11   1,616,221.1   1,561,472.0       2,736   6,314,272   1,793,587.3  Enter Data@cegterg.f90:326                    
+      0.3       17,613,984         85     207,223.3      20,832.0       3,280   2,680,160     575,080.2  Enter Data@cegterg.f90:1052                   
+      0.3       17,369,696          1  17,369,696.0  17,369,696.0  17,369,696  17,369,696           0.0  Enter Data@ggen.f90:161                       
+      0.3       15,308,784         85     180,103.3      15,296.0       5,104   2,737,216     456,652.5  Exit Data@cb_g_psi_batched.f90:17             
+      0.2       14,609,200          8   1,826,150.0   1,764,208.0      48,368   3,370,992   1,216,989.1  Enter Data@cegterg.f90:1311                   
+      0.2       13,001,680         85     152,960.9      22,896.0       8,160   2,631,008     433,023.3  Enter Data@cb_g_psi_batched.f90:17            
+      0.2       12,270,512          1  12,270,512.0  12,270,512.0  12,270,512  12,270,512           0.0  Enter Data@cb_davidson_main.f90:177           
+      0.2       12,017,104         32     375,534.5     405,400.0     109,408     542,432     118,240.4  Wait@cegterg.f90:1346                         
+      0.2       11,756,592         11   1,068,781.1     473,536.0      14,240   4,983,984   1,475,809.7  Enter Data@cegterg.f90:296                    
+      0.2       11,362,912         85     133,681.3     140,400.0       2,848     276,656      89,583.5  Wait@cegterg.f90:1392                         
+      0.2        9,969,520      1,044       9,549.3       7,152.0       4,096     146,752      12,608.3  Compute Construct@cegterg.f90:742             
+      0.2        9,438,624        198      47,669.8      15,976.0         304     639,600     109,487.3  Enter Data@cegterg.f90:1407                   
+      0.1        8,291,824      1,044       7,942.4       5,568.0       3,296     143,664      12,389.0  Enqueue Launch@cegterg.f90:742                
+      0.1        7,807,760      4,059       1,923.6       1,024.0         240     217,728       9,317.0  Exit Data@cegterg.f90:750                     
+      0.1        7,264,752         11     660,432.0      52,016.0       1,840   2,106,336     892,620.6  Exit Data@cegterg.f90:326                     
+      0.1        7,173,616        380      18,877.9      20,824.0       7,984      36,128       5,114.1  Update@my_h_psi_batched_iter.f90:39           
+      0.1        7,150,896         11     650,081.5      26,928.0       7,520   4,958,976   1,538,185.2  Exit Data@cegterg.f90:1593                    
+      0.1        7,000,064        198      35,353.9      18,216.0         608   1,312,960     110,298.3  Exit Data@cegterg.f90:1407                    
+      0.1        6,584,928        380      17,328.8      19,280.0       6,848      33,888       4,974.6  Enqueue Download@my_h_psi_batched_iter.f90:39 
+      0.1        6,043,968      4,059       1,489.0         976.0         192     113,936       3,535.2  Enter Data@cegterg.f90:750                    
+      0.1        6,016,640          1   6,016,640.0   6,016,640.0   6,016,640   6,016,640           0.0  Enter Data@cb_davidson_main.f90:173           
+      0.1        5,811,616         11     528,328.7     638,960.0       2,880   1,075,888     473,200.3  Wait@cegterg.f90:332                          
+      0.1        4,925,792        109      45,190.8      44,000.0      21,648     102,608      11,925.4  Compute Construct@cegterg.f90:1339            
+      0.1        4,567,088         85      53,730.4       7,248.0         640   1,901,216     222,180.2  Enter Data@cegterg.f90:988                    
+      0.1        4,396,704         99      44,411.2      26,832.0       1,104     188,464      44,734.7  Wait@cegterg.f90:1043                         
+      0.1        4,287,120        380      11,281.9      10,872.0       8,832      29,952       2,280.2  Enter Data@my_h_psi_batched_iter.f90:59       
+      0.1        4,027,728         99      40,684.1      32,912.0       1,312     119,872      36,955.8  Wait@cegterg.f90:941                          
+      0.1        4,017,360        380      10,572.0       9,824.0       8,400     200,544       9,845.1  Exit Data@my_h_psi_batched_iter.f90:93        
+      0.1        3,892,768         99      39,320.9      14,784.0       9,600   1,305,616     143,377.5  Enqueue Download@cegterg.f90:1421             
+      0.1        3,332,144         85      39,201.7       5,504.0         544     540,928      94,738.6  Exit Data@cegterg.f90:988                     
+      0.1        3,310,544        132      25,079.9      15,544.0       5,184     128,464      31,490.3  Wait@cegterg.f90:705                          
+      0.0        3,048,896         85      35,869.4      19,856.0      11,152     496,192      63,179.5  Compute Construct@cegterg.f90:1388            
+      0.0        3,005,760        380       7,909.9       7,616.0       6,528      16,992       1,261.7  Exit Data@my_h_psi_batched_iter.f90:59        
+      0.0        2,860,464      1,140       2,509.2       2,320.0       1,920       9,472         647.4  Enqueue Upload@my_h_psi_batched_iter.f90:59   
+      0.0        2,813,120        380       7,402.9       3,416.0         736     130,096      11,193.3  Wait@my_h_psi_batched_iter.f90:55             
+      0.0        2,571,584        380       6,767.3       6,528.0       5,504      13,696       1,042.2  Compute Construct@my_h_psi_batched_iter.f90:81
+      0.0        2,522,176         85      29,672.7      18,464.0       9,312     619,056      70,436.9  Compute Construct@cegterg.f90:1052            
+      0.0        2,521,728         85      29,667.4       6,640.0       4,144     463,152      82,555.0  Compute Construct@cb_g_psi_batched.f90:17     
+      0.0        2,359,408         85      27,757.7       5,104.0       3,264     458,576      81,918.2  Enqueue Launch@cb_g_psi_batched.f90:17        
+      0.0        2,277,232        170      13,395.5       7,680.0       3,456     377,616      38,037.8  Enqueue Launch@cegterg.f90:1053               
+      0.0        2,034,048         85      23,930.0       8,512.0       4,176     478,336      61,469.4  Enqueue Launch@cegterg.f90:1389               
+      0.0        1,861,136         85      21,895.7      19,408.0       8,144      52,912      10,740.5  Compute Construct@cegterg.f90:1083            
+      0.0        1,824,112          1   1,824,112.0   1,824,112.0   1,824,112   1,824,112           0.0  Wait@cegterg.f90:456                          
+      0.0        1,792,800          1   1,792,800.0   1,792,800.0   1,792,800   1,792,800           0.0  Wait@cegterg.f90:566                          
+      0.0        1,727,824        380       4,546.9       4,184.0       3,456      15,904       1,289.9  Enter Data@my_h_psi_batched_iter.f90:81       
+      0.0        1,566,848          1   1,566,848.0   1,566,848.0   1,566,848   1,566,848           0.0  Enter Data@cb_davidson_main.f90:174           
+      0.0        1,451,808         11     131,982.5      26,320.0      16,784   1,180,816     348,009.8  Compute Construct@cegterg.f90:326             
+      0.0        1,397,760         22      63,534.5      10,264.0       4,640     921,040     198,082.4  Enqueue Launch@cegterg.f90:327                
+      0.0        1,380,176         85      16,237.4       1,872.0         704     213,824      41,465.5  Enter Data@cegterg.f90:1012                   
+      0.0        1,352,480        380       3,559.2       3,296.0       2,592      11,488         925.4  Compute Construct@my_h_psi_batched_iter.f90:31
+      0.0        1,341,312        380       3,529.8       3,328.0       2,800      10,528         758.5  Compute Construct@my_h_psi_batched_iter.f90:93
+      0.0        1,303,584         85      15,336.3       7,952.0       4,624     160,864      25,942.6  Compute Construct@cegterg.f90:911             
+      0.0        1,290,976        380       3,397.3       3,216.0       2,624      11,936         732.6  Compute Construct@my_h_psi_batched_iter.f90:59
+      0.0        1,261,104         85      14,836.5       8,752.0       4,992     303,616      35,693.8  Enqueue Upload@cb_g_psi_batched.f90:17        
+      0.0        1,259,696         99      12,724.2       8,640.0       1,120      38,656      10,077.2  Wait@cegterg.f90:1269                         
+      0.0        1,181,328        109      10,837.9       9,424.0       4,192      66,688       7,601.3  Enqueue Launch@cegterg.f90:1340               
+      0.0        1,167,680        380       3,072.8       2,856.0       2,400       9,840         690.1  Exit Data@my_h_psi_batched_iter.f90:81        
+      0.0        1,154,768         85      13,585.5       6,336.0       3,616     156,064      25,516.9  Enqueue Launch@cegterg.f90:911                
+      0.0        1,132,640         85      13,325.2       7,664.0       5,088     229,808      27,500.8  Compute Construct@cegterg.f90:1330            
+      0.0        1,114,576        380       2,933.1       2,704.0       2,240       9,632         724.6  Enqueue Launch@my_h_psi_batched_iter.f90:32   
+      0.0        1,109,600        380       2,920.0       2,768.0       2,336      10,080         646.6  Enqueue Launch@my_h_psi_batched_iter.f90:93   
+      0.0        1,095,024         85      12,882.6       7,552.0       4,208     281,664      30,010.7  Compute Construct@cegterg.f90:988             
+      0.0        1,078,832        109       9,897.5       9,120.0       5,200      41,360       4,413.0  Enqueue Launch@cegterg.f90:1342               
+      0.0        1,066,800        109       9,787.2       6,128.0       4,112     230,128      21,700.4  Enqueue Upload@cegterg.f90:1407               
+      0.0        1,058,896        380       2,786.6       2,656.0       2,176      11,504         610.8  Enqueue Launch@my_h_psi_batched_iter.f90:59   
+      0.0        1,048,080        380       2,758.1       2,640.0       2,176       5,376         435.7  Enqueue Launch@my_h_psi_batched_iter.f90:81   
+      0.0        1,047,760        109       9,612.5       9,008.0       4,288      22,048       2,911.4  Enqueue Launch@cegterg.f90:1341               
+      0.0        1,045,648        109       9,593.1       9,104.0       4,208      20,576       3,089.5  Enqueue Launch@cegterg.f90:1343               
+      0.0          989,760         99       9,997.6       7,040.0       4,832     123,632      12,227.7  Compute Construct@cegterg.f90:1407            
+      0.0          985,200         85      11,590.6       6,048.0       4,160     225,376      27,171.4  Enqueue Launch@cegterg.f90:1331               
+      0.0          985,088         11      89,553.5      15,120.0       9,920     348,960     131,139.8  Enqueue Upload@cegterg.f90:286                
+      0.0          980,160         11      89,105.5      10,048.0       5,488     348,048     142,388.9  Enqueue Upload@cegterg.f90:289                
+      0.0          961,376          1     961,376.0     961,376.0     961,376     961,376           0.0  Enter Data@cb_davidson_main.f90:175           
+      0.0          943,392         85      11,098.7       5,888.0       3,552     278,832      29,824.2  Enqueue Launch@cegterg.f90:988                
+      0.0          918,080        380       2,416.0       2,192.0       1,808       7,872         709.5  Enqueue Upload@my_h_psi_batched_iter.f90:81   
+      0.0          888,752         85      10,455.9       9,152.0       1,792      25,824       6,454.4  Enter Data@cegterg.f90:1388                   
+      0.0          881,280         85      10,368.0       8,160.0       3,184      43,200       7,543.1  Enqueue Launch@cegterg.f90:1084               
+      0.0          876,352         11      79,668.4      32,608.0      20,368     274,944      88,794.2  Compute Construct@cegterg.f90:346             
+      0.0          843,904         11      76,718.5       6,912.0       4,736     521,984     165,471.0  Enqueue Upload@cegterg.f90:292                
+      0.0          829,600         99       8,379.8       5,728.0       3,776     121,584      12,069.4  Enqueue Launch@cegterg.f90:1407               
+      0.0          811,520         85       9,547.3       6,992.0       4,304     125,840      13,291.0  Compute Construct@cegterg.f90:1012            
+      0.0          806,144         64      12,596.0      11,784.0      10,704      36,368       3,605.9  Enter Data@my_h_psi_batched.f90:69            
+      0.0          795,488         85       9,358.7       7,232.0         880      32,624       6,969.0  Enter Data@cegterg.f90:1330                   
+      0.0          792,288         85       9,321.0       6,672.0       4,544     128,000      13,641.5  Compute Construct@cegterg.f90:1232            
+      0.0          733,488         85       8,629.3       7,872.0       3,872      21,168       3,294.4  Enqueue Launch@cegterg.f90:1390               
+      0.0          728,768        109       6,685.9       6,432.0       3,584      11,904       1,695.8  Compute Construct@cegterg.f90:1349            
+      0.0          715,088         85       8,412.8       7,872.0       3,360      33,392       3,942.1  Enqueue Launch@cegterg.f90:1085               
+      0.0          683,808         64      10,684.5      10,240.0       9,232      22,368       2,135.9  Enqueue Upload@my_h_psi_batched.f90:69        
+      0.0          679,904         85       7,998.9       5,552.0       3,392     123,968      13,136.2  Enqueue Launch@cegterg.f90:1012               
+      0.0          652,608         85       7,677.7       5,328.0       3,264     122,512      12,947.7  Enqueue Launch@cegterg.f90:1232               
+      0.0          627,696          1     627,696.0     627,696.0     627,696     627,696           0.0  Enter Data@cegterg.f90:1302                   
+      0.0          582,768        109       5,346.5       5,088.0       2,928      10,736       1,463.9  Enqueue Launch@cegterg.f90:1349               
+      0.0          575,792         11      52,344.7      20,512.0       5,584     234,752      68,223.2  Exit Data@cegterg.f90:1572                    
+      0.0          463,056         85       5,447.7       1,296.0         416     142,112      20,007.7  Exit Data@cegterg.f90:1012                    
+      0.0          451,904         64       7,061.0       6,384.0       5,600      32,576       3,594.0  Compute Construct@my_h_psi_batched.f90:49     
+      0.0          431,744         11      39,249.5      19,744.0       4,784     205,184      57,843.5  Enqueue Launch@cegterg.f90:348                
+      0.0          428,096         85       5,036.4       4,544.0         944      20,272       3,455.5  Enter Data@cegterg.f90:911                    
+      0.0          420,992         12      35,082.7      33,984.0      31,280      49,648       4,812.8  Wait@cb_davidson_main.f90:253                 
+      0.0          401,936         11      36,539.6      12,704.0       5,520     252,384      73,045.1  Enqueue Launch@cegterg.f90:347                
+      0.0          357,056        380         939.6         784.0         512      12,400         845.1  Wait@my_h_psi_batched_iter.f90:39             
+      0.0          325,296         99       3,285.8       2,384.0         944      14,320       2,423.5  Wait@cegterg.f90:794                          
+      0.0          300,800         99       3,038.4       2,464.0       1,264      16,800       2,042.6  Wait@cegterg.f90:1070                         
+      0.0          291,632        109       2,675.5       2,112.0         640       9,360       1,860.9  Enter Data@cegterg.f90:1339                   
+      0.0          254,416         99       2,569.9       2,048.0         848       9,984       1,653.0  Wait@cegterg.f90:832                          
+      0.0          250,880         85       2,951.5       2,496.0         960       8,624       1,636.1  Exit Data@cegterg.f90:1388                    
+      0.0          250,400        109       2,297.2       2,192.0         736       7,360       1,022.2  Exit Data@cegterg.f90:1339                    
+      0.0          249,872         11      22,715.6      11,616.0       6,240     143,376      40,185.0  Compute Construct@cegterg.f90:607             
+      0.0          244,416         32       7,638.0       2,008.0       1,376      95,680      20,896.7  Wait@cegterg.f90:1354                         
+      0.0          243,328          3      81,109.3      76,656.0      60,592     106,080      23,068.7  Enter Data@cegterg.f90:809                    
+      0.0          238,944         64       3,733.5       3,216.0       2,720      14,144       1,771.0  Compute Construct@my_h_psi_batched.f90:24     
+      0.0          235,072         85       2,765.6       2,096.0         752      13,824       2,141.1  Exit Data@cegterg.f90:1330                    
+      0.0          232,144         11      21,104.0       9,760.0       4,928     140,384      39,709.4  Enqueue Launch@cegterg.f90:607                
+      0.0          225,968         85       2,658.4       2,112.0         784      11,120       1,844.9  Exit Data@cegterg.f90:1083                    
+      0.0          225,744         99       2,280.2       1,936.0       1,024       6,928       1,201.6  Wait@cegterg.f90:1291                         
+      0.0          221,968         11      20,178.9       7,872.0       5,040     124,896      35,099.4  Compute Construct@cegterg.f90:660             
+      0.0          213,392         64       3,334.3       3,136.0       2,768       5,904         548.0  Compute Construct@my_h_psi_batched.f90:32     
+      0.0          211,888         11      19,262.5      15,024.0      12,992      44,672       9,522.5  Compute Construct@cegterg.f90:681             
+      0.0          207,600         85       2,442.4       1,808.0         816      12,144       1,822.0  Enter Data@cegterg.f90:1083                   
+      0.0          204,928         64       3,202.0       2,752.0       2,576      19,856       2,161.6  Exit Data@my_h_psi_batched.f90:69             
+      0.0          202,464         64       3,163.5       2,848.0       2,672      10,544       1,141.3  Compute Construct@my_h_psi_batched.f90:69     
+      0.0          200,592          9      22,288.0      21,264.0      16,480      36,784       6,012.6  Update@cegterg.f90:1146                       
+      0.0          198,720         11      18,065.5       5,968.0       3,808     122,016      34,849.2  Enqueue Launch@cegterg.f90:661                
+      0.0          194,368         99       1,963.3       1,488.0         640      12,528       1,467.1  Wait@cegterg.f90:1184                         
+      0.0          193,104         64       3,017.3       2,712.0       2,336       8,752         986.7  Enqueue Launch@my_h_psi_batched.f90:25        
+      0.0          192,160         32       6,005.0       5,712.0       2,624       9,216       2,013.4  Enqueue Upload@cegterg.f90:1311               
+      0.0          188,736          9      20,970.7      21,440.0      14,272      26,224       4,189.6  Update@cegterg.f90:876                        
+      0.0          188,432         99       1,903.4       1,792.0         912       3,552         608.4  Wait@cegterg.f90:1281                         
+      0.0          181,296         99       1,831.3       1,440.0         624       9,104       1,199.8  Wait@cegterg.f90:1062                         
+      0.0          176,304         64       2,754.8       2,648.0       2,336       4,880         426.1  Enqueue Launch@my_h_psi_batched.f90:32        
+      0.0          174,320        109       1,599.3       1,456.0         528       5,904         916.1  Exit Data@cegterg.f90:1349                    
+      0.0          170,464        380         448.6         352.0         224       8,096         489.6  Exit Data@my_h_psi_batched_iter.f90:31        
+      0.0          164,688         64       2,573.3       2,496.0       2,192       4,384         337.3  Enqueue Launch@my_h_psi_batched.f90:49        
+      0.0          163,056         99       1,647.0       1,376.0         736       6,496       1,032.0  Wait@cegterg.f90:851                          
+      0.0          162,496         99       1,641.4       1,488.0         928       5,632         744.0  Wait@cegterg.f90:1133                         
+      0.0          162,432         64       2,538.0       2,408.0       2,240       6,512         566.7  Enqueue Launch@my_h_psi_batched.f90:69        
+      0.0          160,560        380         422.5         352.0         208       1,856         258.3  Enter Data@my_h_psi_batched_iter.f90:31       
+      0.0          157,200        109       1,442.2       1,232.0         368       4,640         833.5  Enter Data@cegterg.f90:1349                   
+      0.0          155,056         11      14,096.0      13,712.0       2,736      28,816       7,802.9  Enter Data@cegterg.f90:681                    
+      0.0          152,880         14      10,920.0       9,216.0       6,688      22,992       4,805.7  Compute Construct@cegterg.f90:1546            
+      0.0          149,552          9      16,616.9      16,912.0      14,144      19,376       1,998.0  Update@cegterg.f90:1203                       
+      0.0          140,240          9      15,582.2      14,672.0      12,064      20,464       2,618.7  Update@cegterg.f90:945                        
+      0.0          137,856         27       5,105.8       4,208.0       2,768      10,288       2,381.3  Enqueue Upload@cegterg.f90:876                
+      0.0          135,904         27       5,033.5       3,760.0       2,976      12,912       2,539.2  Enqueue Upload@cegterg.f90:1146               
+      0.0          134,128         85       1,578.0       1,296.0         672       5,072         859.4  Exit Data@cegterg.f90:911                     
+      0.0          125,088         11      11,371.6       6,864.0       1,504      64,224      17,860.8  Enter Data@cegterg.f90:346                    
+      0.0          122,672         14       8,762.3       7,520.0       5,152      17,456       3,764.3  Enqueue Launch@cegterg.f90:1547               
+      0.0          121,232         11      11,021.1       7,232.0       5,232      30,160       7,839.4  Enqueue Launch@cegterg.f90:682                
+      0.0          115,968          1     115,968.0     115,968.0     115,968     115,968           0.0  Enter Data@cegterg.f90:391                    
+      0.0          110,768          8      13,846.0      13,688.0       9,888      18,048       2,681.2  Exit Data@cegterg.f90:1307                    
+      0.0          103,888         27       3,847.7       3,584.0       2,480       6,480       1,061.7  Enqueue Upload@cegterg.f90:1203               
+      0.0           92,976         18       5,165.3       4,288.0       2,560       9,600       2,290.0  Enqueue Upload@cegterg.f90:945                
+      0.0           90,512          6      15,085.3      13,520.0       4,032      26,560       9,949.4  Enqueue Upload@ggen.f90:161                   
+      0.0           86,240         11       7,840.0       7,776.0       1,840      14,224       3,923.1  Wait@cegterg.f90:685                          
+      0.0           81,984         64       1,281.0         672.0         624      30,608       3,761.9  Enter Data@my_h_psi_batched.f90:32            
+      0.0           80,656         11       7,332.4       5,664.0       4,208      19,520       4,432.0  Update@cb_davidson_main.f90:199               
+      0.0           73,680         21       3,508.6       2,976.0       2,496       8,256       1,397.5  Enqueue Upload@cegterg.f90:809                
+      0.0           71,264          3      23,754.7      20,480.0      17,216      33,568       8,653.9  Exit Data@cegterg.f90:805                     
+      0.0           69,216         11       6,292.4       4,752.0       3,760      15,936       3,621.7  Enqueue Upload@cb_davidson_main.f90:199       
+      0.0           59,424         11       5,402.2       5,072.0       4,160       7,360       1,044.0  Enqueue Launch@cegterg.f90:683                
+      0.0           52,416         64         819.0         704.0         608       2,400         342.5  Exit Data@my_h_psi_batched.f90:32             
+      0.0           44,656         11       4,059.6       2,592.0       2,016      10,128       2,787.4  Wait@cegterg.f90:469                          
+      0.0           42,304          1      42,304.0      42,304.0      42,304      42,304           0.0  Enter Data@set_cb_potential.f90:17            
+      0.0           40,464          9       4,496.0       2,896.0       2,432      17,728       4,972.5  Wait@cegterg.f90:1146                         
+      0.0           36,976         64         577.8         512.0         448       1,728         229.3  Enter Data@my_h_psi_batched.f90:49            
+      0.0           34,912          1      34,912.0      34,912.0      34,912      34,912           0.0  Update@cegterg.f90:539                        
+      0.0           34,704         64         542.3         496.0         448       1,792         175.2  Exit Data@my_h_psi_batched.f90:49             
+      0.0           34,528          1      34,528.0      34,528.0      34,528      34,528           0.0  Update@cb_davidson_main.f90:254               
+      0.0           33,296          1      33,296.0      33,296.0      33,296      33,296           0.0  Update@set_cb_potential.f90:47                
+      0.0           32,976          1      32,976.0      32,976.0      32,976      32,976           0.0  Exit Data@cb_davidson_main.f90:285            
+      0.0           30,224          1      30,224.0      30,224.0      30,224      30,224           0.0  Enqueue Download@cb_davidson_main.f90:254     
+      0.0           29,552         11       2,686.5       2,464.0         912       6,576       1,811.2  Enter Data@cegterg.f90:660                    
+      0.0           28,432          6       4,738.7       3,264.0       2,400       9,584       2,813.9  Enqueue Upload@cegterg.f90:539                
+      0.0           27,632         11       2,512.0       2,128.0       1,488       4,720       1,004.7  Wait@cegterg.f90:664                          
+      0.0           27,504         11       2,500.4       2,080.0       1,312       6,528       1,553.2  Exit Data@cegterg.f90:681                     
+      0.0           26,544          2      13,272.0      13,272.0       9,216      17,328       5,736.1  Enqueue Upload@cb_davidson_main.f90:174       
+      0.0           26,032         64         406.8         288.0         224       1,616         339.2  Exit Data@my_h_psi_batched.f90:24             
+      0.0           25,968          1      25,968.0      25,968.0      25,968      25,968           0.0  Enqueue Upload@set_cb_potential.f90:47        
+      0.0           25,952          1      25,952.0      25,952.0      25,952      25,952           0.0  Update@cegterg.f90:440                        
+      0.0           25,840          9       2,871.1       1,744.0       1,232      10,816       3,017.9  Enter Data@my_h_psi_batched_iter.f90:29       
+      0.0           25,504         11       2,318.5       1,760.0       1,040       5,632       1,530.7  Exit Data@cegterg.f90:346                     
+      0.0           25,088          9       2,787.6       2,656.0       2,448       3,232         294.8  Wait@cegterg.f90:876                          
+      0.0           24,832          9       2,759.1       2,864.0       2,192       3,232         365.5  Wait@cegterg.f90:945                          
+      0.0           24,400          1      24,400.0      24,400.0      24,400      24,400           0.0  Enter Data@cb_davidson_main.f90:178           
+      0.0           23,664          9       2,629.3       2,624.0       2,416       2,784         123.4  Wait@cegterg.f90:1203                         
+      0.0           23,232          8       2,904.0       2,832.0       2,192       3,664         466.3  Wait@cegterg.f90:1311                         
+      0.0           22,976          4       5,744.0       5,664.0       3,232       8,416       2,126.3  Enqueue Upload@cegterg.f90:1302               
+      0.0           22,496         64         351.5         256.0         208       2,640         372.5  Enter Data@my_h_psi_batched.f90:24            
+      0.0           22,224         11       2,020.4       1,264.0         928       5,296       1,475.6  Exit Data@cegterg.f90:660                     
+      0.0           21,808         11       1,982.5       1,744.0         768       5,408       1,197.3  Wait@cegterg.f90:341                          
+      0.0           20,896          6       3,482.7       3,184.0       2,560       4,880         910.5  Enqueue Upload@cegterg.f90:440                
+      0.0           20,048          6       3,341.3       3,008.0       2,608       5,328       1,013.3  Enqueue Upload@cegterg.f90:391                
+      0.0           18,992         11       1,726.5       1,328.0       1,184       4,208         886.2  Wait@cegterg.f90:502                          
+      0.0           17,888         11       1,626.2       1,648.0       1,136       2,256         408.1  Wait@cegterg.f90:577                          
+      0.0           16,368          2       8,184.0       8,184.0       7,472       8,896       1,006.9  Enqueue Upload@cb_davidson_main.f90:285       
+      0.0           13,920          1      13,920.0      13,920.0      13,920      13,920           0.0  Enter Data@cb_davidson_main.f90:179           
+      0.0           11,248          1      11,248.0      11,248.0      11,248      11,248           0.0  Wait@my_h_psi_batched.f90:80                  
+      0.0           10,256          1      10,256.0      10,256.0      10,256      10,256           0.0  Exit Data@cb_davidson_main.f90:256            
+      0.0            9,632          1       9,632.0       9,632.0       9,632       9,632           0.0  Exit Data@cb_davidson_main.f90:290            
+      0.0            9,296          1       9,296.0       9,296.0       9,296       9,296           0.0  Exit Data@cb_davidson_main.f90:282            
+      0.0            8,224          1       8,224.0       8,224.0       8,224       8,224           0.0  Wait@cb_davidson_main.f90:173                 
+      0.0            7,632          9         848.0         800.0         704       1,024         109.7  Exit Data@my_h_psi_batched_iter.f90:29        
+      0.0            6,752          1       6,752.0       6,752.0       6,752       6,752           0.0  Exit Data@cb_davidson_main.f90:283            
+      0.0            6,416          3       2,138.7       2,288.0       1,632       2,496         450.9  Wait@cegterg.f90:809                          
+      0.0            6,096          2       3,048.0       3,048.0       2,944       3,152         147.1  Enqueue Upload@set_cb_potential.f90:17        
+      0.0            5,840          1       5,840.0       5,840.0       5,840       5,840           0.0  Exit Data@cb_davidson_main.f90:291            
+      0.0            5,456          1       5,456.0       5,456.0       5,456       5,456           0.0  Wait@cb_davidson_main.f90:177                 
+      0.0            5,328          1       5,328.0       5,328.0       5,328       5,328           0.0  Wait@cb_davidson_main.f90:175                 
+      0.0            4,656          1       4,656.0       4,656.0       4,656       4,656           0.0  Exit Data@cb_davidson_main.f90:284            
+      0.0            4,544          1       4,544.0       4,544.0       4,544       4,544           0.0  Wait@cb_davidson_main.f90:174                 
+      0.0            4,480          1       4,480.0       4,480.0       4,480       4,480           0.0  Wait@cb_davidson_main.f90:176                 
+      0.0            4,448          1       4,448.0       4,448.0       4,448       4,448           0.0  Wait@ggen.f90:161                             
+      0.0            3,216          1       3,216.0       3,216.0       3,216       3,216           0.0  Exit Data@cb_davidson_main.f90:286            
+      0.0            3,216          1       3,216.0       3,216.0       3,216       3,216           0.0  Wait@set_cb_potential.f90:17                  
+      0.0            2,672          1       2,672.0       2,672.0       2,672       2,672           0.0  Enter Data@my_h_psi_batched.f90:19            
+      0.0            2,672          1       2,672.0       2,672.0       2,672       2,672           0.0  Wait@cegterg.f90:391                          
+      0.0            2,400          1       2,400.0       2,400.0       2,400       2,400           0.0  Exit Data@cb_davidson_main.f90:289            
+      0.0            2,272          1       2,272.0       2,272.0       2,272       2,272           0.0  Wait@cegterg.f90:1302                         
+      0.0            2,224          1       2,224.0       2,224.0       2,224       2,224           0.0  Wait@cegterg.f90:539                          
+      0.0            2,176          1       2,176.0       2,176.0       2,176       2,176           0.0  Wait@cegterg.f90:440                          
+      0.0            1,920          1       1,920.0       1,920.0       1,920       1,920           0.0  Exit Data@cb_davidson_main.f90:287            
+      0.0            1,776          1       1,776.0       1,776.0       1,776       1,776           0.0  Exit Data@cb_davidson_main.f90:288            
+      0.0            1,488          1       1,488.0       1,488.0       1,488       1,488           0.0  Wait@cb_davidson_main.f90:254                 
+      0.0              976          1         976.0         976.0         976         976           0.0  Wait@set_cb_potential.f90:47                  
+      0.0              800          1         800.0         800.0         800         800           0.0  Wait@cb_davidson_main.f90:179                 
+      0.0              704          1         704.0         704.0         704         704           0.0  Exit Data@my_h_psi_batched.f90:19             
+      0.0              576          1         576.0         576.0         576         576           0.0  Wait@cb_davidson_main.f90:178                 
+      0.0                0         11           0.0           0.0           0           0           0.0  Alloc                                         
+      0.0                0          3           0.0           0.0           0           0           0.0  Alloc@cb_davidson_main.f90:173                
+      0.0                0          6           0.0           0.0           0           0           0.0  Alloc@cb_davidson_main.f90:174                
+      0.0                0          5           0.0           0.0           0           0           0.0  Alloc@cb_davidson_main.f90:175                
+      0.0                0          3           0.0           0.0           0           0           0.0  Alloc@cb_davidson_main.f90:176                
+      0.0                0          2           0.0           0.0           0           0           0.0  Alloc@cb_davidson_main.f90:177                
+      0.0                0          1           0.0           0.0           0           0           0.0  Alloc@cb_davidson_main.f90:178                
+      0.0                0          2           0.0           0.0           0           0           0.0  Alloc@cb_davidson_main.f90:179                
+      0.0                0         12           0.0           0.0           0           0           0.0  Alloc@cb_g_psi_batched.f90:17                 
+      0.0                0         10           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:1052                        
+      0.0                0          3           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:1302                        
+      0.0                0         28           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:1311                        
+      0.0                0          2           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:1318                        
+      0.0                0         12           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:1333                        
+      0.0                0          9           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:1354                        
+      0.0                0          7           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:1407                        
+      0.0                0         33           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:277                         
+      0.0                0         22           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:286                         
+      0.0                0         22           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:289                         
+      0.0                0         11           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:292                         
+      0.0                0         11           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:296                         
+      0.0                0         12           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:391                         
+      0.0                0          6           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:664                         
+      0.0                0         11           0.0           0.0           0           0           0.0  Alloc@cegterg.f90:809                         
+      0.0                0          4           0.0           0.0           0           0           0.0  Alloc@ggen.f90:161                            
+      0.0                0          1           0.0           0.0           0           0           0.0  Alloc@my_h_psi_batched.f90:69                 
+      0.0                0          4           0.0           0.0           0           0           0.0  Alloc@set_cb_potential.f90:17                 
+      0.0                0          3           0.0           0.0           0           0           0.0  Create@cb_davidson_main.f90:173               
+      0.0                0          6           0.0           0.0           0           0           0.0  Create@cb_davidson_main.f90:174               
+      0.0                0          5           0.0           0.0           0           0           0.0  Create@cb_davidson_main.f90:175               
+      0.0                0          3           0.0           0.0           0           0           0.0  Create@cb_davidson_main.f90:176               
+      0.0                0          2           0.0           0.0           0           0           0.0  Create@cb_davidson_main.f90:177               
+      0.0                0          1           0.0           0.0           0           0           0.0  Create@cb_davidson_main.f90:178               
+      0.0                0          2           0.0           0.0           0           0           0.0  Create@cb_davidson_main.f90:179               
+      0.0                0         85           0.0           0.0           0           0           0.0  Create@cb_g_psi_batched.f90:17                
+      0.0                0         85           0.0           0.0           0           0           0.0  Create@cegterg.f90:1052                       
+      0.0                0          8           0.0           0.0           0           0           0.0  Create@cegterg.f90:1302                       
+      0.0                0         64           0.0           0.0           0           0           0.0  Create@cegterg.f90:1311                       
+      0.0                0        109           0.0           0.0           0           0           0.0  Create@cegterg.f90:1407                       
+      0.0                0         33           0.0           0.0           0           0           0.0  Create@cegterg.f90:277                        
+      0.0                0         22           0.0           0.0           0           0           0.0  Create@cegterg.f90:286                        
+      0.0                0         22           0.0           0.0           0           0           0.0  Create@cegterg.f90:289                        
+      0.0                0         11           0.0           0.0           0           0           0.0  Create@cegterg.f90:292                        
+      0.0                0         11           0.0           0.0           0           0           0.0  Create@cegterg.f90:296                        
+      0.0                0         12           0.0           0.0           0           0           0.0  Create@cegterg.f90:391                        
+      0.0                0         42           0.0           0.0           0           0           0.0  Create@cegterg.f90:809                        
+      0.0                0          4           0.0           0.0           0           0           0.0  Create@ggen.f90:161                           
+      0.0                0         64           0.0           0.0           0           0           0.0  Create@my_h_psi_batched.f90:69                
+      0.0                0      1,140           0.0           0.0           0           0           0.0  Create@my_h_psi_batched_iter.f90:59           
+      0.0                0        380           0.0           0.0           0           0           0.0  Create@my_h_psi_batched_iter.f90:81           
+      0.0                0      1,520           0.0           0.0           0           0           0.0  Create@my_h_psi_batched_iter.f90:93           
+      0.0                0          4           0.0           0.0           0           0           0.0  Create@set_cb_potential.f90:17                
+      0.0                0          4           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:256               
+      0.0                0          4           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:282               
+      0.0                0          5           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:283               
+      0.0                0          3           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:284               
+      0.0                0          4           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:285               
+      0.0                0          3           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:286               
+      0.0                0          2           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:287               
+      0.0                0          1           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:288               
+      0.0                0          2           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:289               
+      0.0                0          7           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:290               
+      0.0                0          6           0.0           0.0           0           0           0.0  Delete@cb_davidson_main.f90:291               
+      0.0                0         85           0.0           0.0           0           0           0.0  Delete@cb_g_psi_batched.f90:25                
+      0.0                0         85           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1059                       
+      0.0                0         64           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1307                       
+      0.0                0          6           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1318                       
+      0.0                0         24           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1333                       
+      0.0                0         24           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1354                       
+      0.0                0        109           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1421                       
+      0.0                0         77           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1572                       
+      0.0                0         22           0.0           0.0           0           0           0.0  Delete@cegterg.f90:1593                       
+      0.0                0          6           0.0           0.0           0           0           0.0  Delete@cegterg.f90:664                        
+      0.0                0         28           0.0           0.0           0           0           0.0  Delete@cegterg.f90:805                        
+      0.0                0         64           0.0           0.0           0           0           0.0  Delete@my_h_psi_batched.f90:77                
+      0.0                0      1,520           0.0           0.0           0           0           0.0  Delete@my_h_psi_batched_iter.f90:104          
+      0.0                0      1,140           0.0           0.0           0           0           0.0  Delete@my_h_psi_batched_iter.f90:77           
+      0.0                0        380           0.0           0.0           0           0           0.0  Delete@my_h_psi_batched_iter.f90:86           
+      0.0                0        219           0.0           0.0           0           0           0.0  Free@cb_davidson_main.f90:291                 
+
+Generated:
+	/home/marco/WKNG_CODE_PERF_ANALYSIS_26_10/KS_SOLVER_diaghg_modified/build/bin/profile_cb_davidson.nsys-rep
+	/home/marco/WKNG_CODE_PERF_ANALYSIS_26_10/KS_SOLVER_diaghg_modified/build/bin/profile_cb_davidson.sqlite
+
