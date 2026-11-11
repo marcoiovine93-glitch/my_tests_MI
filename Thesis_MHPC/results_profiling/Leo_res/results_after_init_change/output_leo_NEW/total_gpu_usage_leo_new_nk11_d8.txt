@@ -1,0 +1,3 @@
+TotalKernelCalls  TotalKernelExecutionNs  OverallGpuActivePercentage
+----------------  ----------------------  --------------------------
+24072             1370872016              74.8222151391311          
